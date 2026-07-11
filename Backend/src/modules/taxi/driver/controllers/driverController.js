@@ -10,6 +10,7 @@ import { BusDriver } from "../models/BusDriver.js";
 import { DriverLoginSession } from "../models/DriverLoginSession.js";
 import { WalletTransaction } from "../models/WalletTransaction.js";
 import { WithdrawalRequest } from "../../admin/models/WithdrawalRequest.js";
+import { OwnerWalletTransaction } from "../../admin/models/OwnerWalletTransaction.js";
 import { Ride } from "../../user/models/Ride.js";
 import { BusBooking } from "../../user/models/BusBooking.js";
 import { BusSeatHold } from "../../user/models/BusSeatHold.js";
@@ -58,6 +59,11 @@ import {
 import { verifyAccessToken } from "../../services/tokenService.js";
 import { clearDriverActiveRideIfStale } from "../../services/rideService.js";
 import { getWalletSettings } from "../../services/appSettingsService.js";
+import {
+  getPartnerSubscriptionSummary,
+  listPartnerSubscriptionPlans,
+  purchasePartnerSubscription,
+} from "../../services/partnerSubscriptionService.js";
 import { RIDE_LIVE_STATUS, RIDE_STATUS } from "../../constants/index.js";
 import {
   createRentalVehicleType,
@@ -2955,9 +2961,17 @@ export const getCurrentDriver = async (req, res) => {
       throw new ApiError(404, "Owner not found");
     }
 
+    const subscriptionSummary = await getPartnerSubscriptionSummary({
+      audience: "owner",
+      entityId: owner._id,
+    });
+
     res.json({
       success: true,
-      data: serializeOwnerProfile(owner.toObject()),
+      data: {
+        ...serializeOwnerProfile(owner.toObject()),
+        subscriptionSummary,
+      },
     });
     return;
   }
@@ -3005,6 +3019,10 @@ export const getCurrentDriver = async (req, res) => {
   await clearDriverActiveRideIfStale(driver);
   const vehicleIconUrl = await resolveVehicleMapIcon(driver.vehicleTypeId);
   const todaySummary = await syncDriverTodaySummaryDocument(driver);
+  const subscriptionSummary = await getPartnerSubscriptionSummary({
+    audience: "driver",
+    entityId: driver._id,
+  });
 
   res.json({
     success: true,
@@ -3056,7 +3074,52 @@ export const getCurrentDriver = async (req, res) => {
         : [],
       onboarding: driver.onboarding || {},
       todaySummary: todaySummary || buildDriverTodaySummaryFromDocument(driver),
+      subscriptionSummary,
     },
+  });
+};
+
+export const getPartnerSubscriptionPlansForCurrentDriver = async (req, res) => {
+  const audience = String(req.auth?.role || "").toLowerCase() === "owner" ? "owner" : "driver";
+  const plans = await listPartnerSubscriptionPlans({
+    audience,
+    activeOnly: true,
+  });
+
+  res.json({
+    success: true,
+    data: {
+      mode: await AdminBusinessSetting.findOne({ scope: "default" }).lean().then((setting) => setting?.subscription?.mode || "commissionOnly"),
+      results: plans,
+    },
+  });
+};
+
+export const getMyPartnerSubscriptions = async (req, res) => {
+  const audience = String(req.auth?.role || "").toLowerCase() === "owner" ? "owner" : "driver";
+  const entityId = req.auth?.sub;
+  const summary = await getPartnerSubscriptionSummary({ audience, entityId });
+
+  res.json({
+    success: true,
+    data: summary,
+  });
+};
+
+export const purchaseMyPartnerSubscription = async (req, res) => {
+  const audience = String(req.auth?.role || "").toLowerCase() === "owner" ? "owner" : "driver";
+  const result = await purchasePartnerSubscription({
+    audience,
+    entityId: req.auth?.sub,
+    planId: req.body?.planId,
+    autoRenew: req.body?.autoRenew,
+    paymentSource: req.body?.paymentSource || "wallet",
+  });
+
+  res.json({
+    success: true,
+    message: "Subscription purchased successfully",
+    data: result,
   });
 };
 
@@ -4409,7 +4472,17 @@ export const deleteCurrentDriverAccount = async (req, res) => {
 
 export const getMyWallet = async (req, res) => {
   if (String(req.auth?.role || "").toLowerCase() === "owner") {
-    const owner = await Owner.findById(req.auth.sub).lean();
+    const [owner, transactions, subscriptionSummary] = await Promise.all([
+      Owner.findById(req.auth.sub).lean(),
+      OwnerWalletTransaction.find({ ownerId: req.auth.sub })
+        .sort({ createdAt: -1 })
+        .limit(25)
+        .lean(),
+      getPartnerSubscriptionSummary({
+        audience: "owner",
+        entityId: req.auth.sub,
+      }),
+    ]);
 
     if (!owner) {
       throw new ApiError(404, "Owner not found");
@@ -4422,9 +4495,17 @@ export const getMyWallet = async (req, res) => {
           balance: Number(owner.wallet?.balance || 0),
           currency: "INR",
         },
-        transactions: [],
+        transactions: transactions.map((item) => ({
+          _id: String(item._id),
+          amount: Number(item.amount || 0),
+          kind: item.kind || "debit",
+          title: item.title || "Owner wallet transaction",
+          balance: Number(item.balance || 0),
+          createdAt: item.createdAt,
+        })),
         withdrawalRequests: [],
         settings: await getWalletSettings(),
+        subscriptionSummary,
       },
     });
     return;
@@ -4445,6 +4526,10 @@ export const getMyWallet = async (req, res) => {
     .limit(10)
     .lean();
   const walletSettings = await getWalletSettings();
+  const subscriptionSummary = await getPartnerSubscriptionSummary({
+    audience: "driver",
+    entityId: req.auth.sub,
+  });
 
   res.json({
     success: true,
@@ -4453,6 +4538,7 @@ export const getMyWallet = async (req, res) => {
       transactions,
       withdrawalRequests,
       settings: walletSettings,
+      subscriptionSummary,
     },
   });
 };
@@ -8498,6 +8584,11 @@ export const getOwnerFleetDashboard = async (req, res) => {
     );
   }
 
+  const subscriptionSummary = await getPartnerSubscriptionSummary({
+    audience: "owner",
+    entityId: owner._id,
+  });
+
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
@@ -8900,6 +8991,7 @@ export const getOwnerFleetDashboard = async (req, res) => {
         onlineTrips: rideMetrics.onlineTrips,
         cashTrips: rideMetrics.cashTrips,
       },
+      subscriptionSummary,
       busOverview,
       transportBreakdown,
       recentDrivers: drivers.slice(0, 5).map((driver) => ({

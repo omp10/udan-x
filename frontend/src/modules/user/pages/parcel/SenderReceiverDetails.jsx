@@ -304,6 +304,17 @@ const matchesDeliveryCategory = (vehicle, categoryId) => {
   return searchTokens.some((token) => vehicleName.includes(token) || iconType.includes(token));
 };
 
+const readWeightKg = (value) => {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('under 5')) return 5;
+  if (text.includes('5kg - 20') || text.includes('5 kg - 20')) return 20;
+  if (text.includes('20kg - 100') || text.includes('20 kg - 100')) return 100;
+  if (text.includes('100kg - 500') || text.includes('100 kg - 500')) return 500;
+  if (text.includes('above 500')) return 1500;
+  const numeric = Number(text.replace(/[^0-9.]/g, ''));
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
 const PhoneInput = ({ label, value, onChange, error, name, onClearError, disabled = false }) => (
   <div className="space-y-2">
     <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-slate-400">{label}</label>
@@ -1024,6 +1035,30 @@ const SenderReceiverDetails = () => {
   const [drop, setDrop] = useState(() => parcelState.drop || '');
   const [pickupCoords, setPickupCoords] = useState(() => parcelState.pickupCoords || getCoords(parcelState.pickup || '', [75.8577, 22.7196]));
   const [dropCoords, setDropCoords] = useState(() => parcelState.dropCoords || (parcelState.drop ? getCoords(parcelState.drop || '') : null));
+
+  // === SOW Goods Transport States ===
+  const [showGoodsCollapse, setShowGoodsCollapse] = useState(false);
+  const [goodsWeight, setGoodsWeight] = useState(() => parcelState.goodsWeight || '');
+  const [goodsCategory, setGoodsCategory] = useState(() => parcelState.goodsCategory || 'Household');
+  const [fragile, setFragile] = useState(() => Boolean(parcelState.fragile));
+  const [helperType, setHelperType] = useState(() => parcelState.helperType || 'none');
+  const [loadingRate, setLoadingRate] = useState(150);
+  const [unloadingRate, setUnloadingRate] = useState(150);
+  const [goodsSettings, setGoodsSettings] = useState({
+    enable_fragile_option: true,
+    enable_helper_booking: true,
+    enable_warehouse_pickup: true,
+    enable_warehouse_drop: true,
+    enable_weight_based_pricing: true,
+    show_material_category: true,
+    show_weight_field: true,
+    show_fragile_toggle: true,
+  });
+  const [warehouses, setWarehouses] = useState([]);
+  const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
+  const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+  const [activeWarehouseTarget, setActiveWarehouseTarget] = useState('pickup');
+
   const [activeInput, setActiveInput] = useState(() => {
     if (location.state?.activeInput === 'pickup' || location.state?.editPickup) {
       return 'pickup';
@@ -1034,6 +1069,8 @@ const SenderReceiverDetails = () => {
   const [isLocatingPickup, setIsLocatingPickup] = useState(false);
   const [errors, setErrors] = useState({});
   const [recoveredSelectedVehicles, setRecoveredSelectedVehicles] = useState([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState(() => String(parcelState.selectedVehicleId || '').trim());
+  const [loadingCompatibleVehicles, setLoadingCompatibleVehicles] = useState(false);
   const [googleSuggestions, setGoogleSuggestions] = useState([]);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [zones, setZones] = useState([]);
@@ -1051,6 +1088,14 @@ const SenderReceiverDetails = () => {
   const addressLookupCacheRef = useRef(new Map());
   const placeIdLookupCacheRef = useRef(new Map());
   const routeEstimateCacheRef = useRef(new Map());
+  const effectiveReceiverName = useMemo(
+    () => (useSelfForReceiver ? String(senderName || '').trim() : String(receiverName || '').trim()),
+    [receiverName, senderName, useSelfForReceiver],
+  );
+  const effectiveReceiverMobile = useMemo(
+    () => (useSelfForReceiver ? String(senderMobile || '').trim() : String(receiverMobile || '').trim()),
+    [receiverMobile, senderMobile, useSelfForReceiver],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1058,23 +1103,36 @@ const SenderReceiverDetails = () => {
       ...parcelState,
       senderName,
       senderMobile,
-      receiverName,
-      receiverMobile,
+      receiverName: effectiveReceiverName,
+      receiverMobile: effectiveReceiverMobile,
       pickup,
       drop,
       pickupCoords,
       dropCoords,
+      goodsWeight,
+      goodsCategory,
+      fragile,
+      helperType,
     }));
-  }, [drop, dropCoords, parcelState, pickup, pickupCoords, receiverMobile, receiverName, senderMobile, senderName]);
+  }, [drop, dropCoords, effectiveReceiverMobile, effectiveReceiverName, parcelState, pickup, pickupCoords, senderMobile, senderName, goodsWeight, goodsCategory, fragile, helperType]);
 
   useEffect(() => {
     let active = true;
 
+    const MOCK_WAREHOUSES = [
+      { id: 'wh-1', name: 'Vijay Nagar Hub', address: 'Plot 45, Vijay Nagar Sector C, Indore', city: 'Indore', coordinates: [75.8937, 22.7533], is_pickup: true, is_drop: true, zone: 'Indore Main' },
+      { id: 'wh-2', name: 'Palasia Center', address: '12, Palasia Square, opposite Central Mall, Indore', city: 'Indore', coordinates: [75.8863, 22.7242], is_pickup: true, is_drop: false, zone: 'Indore East' },
+      { id: 'wh-3', name: 'Rajwada Outlet', address: 'Sarafa Bazar, near Rajwada Palace, Indore', city: 'Indore', coordinates: [75.8553, 22.7187], is_pickup: false, is_drop: true, zone: 'Indore Central' },
+    ];
+
     const loadZoneData = async () => {
       try {
-        const [zonesResponse, storesResponse] = await Promise.all([
+        const [zonesResponse, storesResponse, warehousesResponse, helpersResponse, settingsResponse] = await Promise.all([
           api.get('/admin/zones'),
           api.get('/users/service-stores'),
+          api.get('/users/warehouses').catch(() => null),
+          api.get('/users/helpers').catch(() => null),
+          api.get('/users/settings/goods-settings').catch(() => null),
         ]);
         if (!active) {
           return;
@@ -1089,11 +1147,33 @@ const SenderReceiverDetails = () => {
         setZones(allZones);
         setZonePaths(allPaths);
         setServiceStores(allStores);
+
+        if (warehousesResponse?.data) {
+          const list = warehousesResponse.data.results || warehousesResponse.data.data || warehousesResponse.data || [];
+          setWarehouses(Array.isArray(list) && list.length > 0 ? list : MOCK_WAREHOUSES);
+        } else {
+          setWarehouses(MOCK_WAREHOUSES);
+        }
+
+        if (helpersResponse?.data) {
+          const helpersList = helpersResponse.data.results || helpersResponse.data.data || helpersResponse.data || [];
+          if (helpersList.length > 0) {
+            const loadingHelper = helpersList.find(h => h.helper_type === 'loading' || h.helper_type === 'both');
+            const unloadingHelper = helpersList.find(h => h.helper_type === 'unloading' || h.helper_type === 'both');
+            if (loadingHelper) setLoadingRate(Number(loadingHelper.loading_charge || 150));
+            if (unloadingHelper) setUnloadingRate(Number(unloadingHelper.unloading_charge || 150));
+          }
+        }
+        const remoteGoodsSettings = settingsResponse?.data?.data?.settings || settingsResponse?.data?.settings;
+        if (remoteGoodsSettings) {
+          setGoodsSettings(prev => ({ ...prev, ...remoteGoodsSettings }));
+        }
       } catch {
         if (active) {
           setZones([]);
           setZonePaths([]);
           setServiceStores([]);
+          setWarehouses(MOCK_WAREHOUSES);
         }
       }
     };
@@ -1142,16 +1222,26 @@ const SenderReceiverDetails = () => {
     };
   }, [storedUser]);
 
-  useEffect(() => {
-    const selectedVehicleIds = Array.isArray(parcelState.selectedVehicleIds)
-      ? parcelState.selectedVehicleIds.map((id) => String(id || '').trim()).filter(Boolean)
-      : [];
-    const selectedVehicleId = String(parcelState.selectedVehicleId || '').trim();
-    const selectedIdSet = new Set([...selectedVehicleIds, selectedVehicleId].filter(Boolean));
-    const deliveryCategory = String(parcelState.deliveryCategory || parcelState.category || '').trim().toLowerCase();
+  const isVehicleSelectionReady = Boolean(
+    senderName.trim()
+    && PHONE_REGEX.test(senderMobile)
+    && effectiveReceiverName
+    && PHONE_REGEX.test(effectiveReceiverMobile)
+    && pickup.trim()
+    && drop.trim()
+  );
 
-    if (!selectedIdSet.size && !deliveryCategory) {
+  useEffect(() => {
+    const deliveryCategory = String(parcelState.deliveryCategory || parcelState.category || '').trim().toLowerCase();
+    const curatedVehicleIds = Array.isArray(parcelState.goodsTypeVehicleIds)
+      ? parcelState.goodsTypeVehicleIds.map((id) => String(id || '').trim()).filter(Boolean)
+      : [];
+    const selectedIdSet = new Set(curatedVehicleIds);
+    const maxWeightKg = Number(parcelState.maxWeightKg || parcelState.parcel?.maxWeightKg || 0) || readWeightKg(goodsWeight);
+
+    if (!isVehicleSelectionReady || !deliveryCategory) {
       setRecoveredSelectedVehicles([]);
+      setLoadingCompatibleVehicles(false);
       return undefined;
     }
 
@@ -1159,20 +1249,43 @@ const SenderReceiverDetails = () => {
 
     const recoverSelectedVehicles = async () => {
       try {
-        const response = await api.get('/users/vehicle-types');
+        setLoadingCompatibleVehicles(true);
+        const response = await api.get('/users/vehicle-types', {
+          params: {
+            transport_type: 'delivery',
+            min_capacity: maxWeightKg > 0 ? maxWeightKg : undefined,
+            delivery_category: deliveryCategory || undefined,
+          },
+        });
         const items = response?.data?.results || response?.results || response?.data?.data?.results || [];
         const deliveryVehicles = Array.isArray(items) ? items.filter(isDeliveryVehicle) : [];
 
-        let matchedVehicles = deliveryVehicles.filter((vehicle) => selectedIdSet.has(getVehicleId(vehicle)));
-        if (matchedVehicles.length === 0 && deliveryCategory) {
-          matchedVehicles = deliveryVehicles.filter((vehicle) => matchesDeliveryCategory(vehicle, deliveryCategory));
-        }
+        const matchedVehicles = deliveryVehicles
+          .filter((vehicle) => {
+            const vehicleId = getVehicleId(vehicle);
+            const capacity = Number(vehicle.capacity || 0);
+            const capacityOk = capacity <= 0 || maxWeightKg <= 0 || capacity >= maxWeightKg;
+            const categoryOk = matchesDeliveryCategory(vehicle, deliveryCategory);
+            const curatedOk = !selectedIdSet.size || selectedIdSet.has(vehicleId);
+            return capacityOk && categoryOk && curatedOk;
+          })
+          .sort((left, right) => Number(left.capacity || 99999) - Number(right.capacity || 99999));
 
         if (!active) return;
         setRecoveredSelectedVehicles(matchedVehicles);
+        setSelectedVehicleId((current) => {
+          if (current && matchedVehicles.some((vehicle) => getVehicleId(vehicle) === current)) {
+            return current;
+          }
+          return getVehicleId(matchedVehicles[0]) || '';
+        });
       } catch {
         if (!active) return;
         setRecoveredSelectedVehicles([]);
+      } finally {
+        if (active) {
+          setLoadingCompatibleVehicles(false);
+        }
       }
     };
 
@@ -1181,7 +1294,7 @@ const SenderReceiverDetails = () => {
     return () => {
       active = false;
     };
-  }, [parcelState.category, parcelState.deliveryCategory, parcelState.selectedVehicle, parcelState.selectedVehicleId, parcelState.selectedVehicleIds, parcelState.selectedVehicles]);
+  }, [goodsWeight, isVehicleSelectionReady, parcelState.category, parcelState.deliveryCategory, parcelState.goodsTypeVehicleIds, parcelState.maxWeightKg, parcelState.parcel?.maxWeightKg]);
 
   const query = useMemo(() => (activeInput === 'pickup' ? pickup : drop), [activeInput, drop, pickup]);
 
@@ -1241,8 +1354,8 @@ const SenderReceiverDetails = () => {
     return [];
   }, [recoveredSelectedVehicles]);
   const primarySelectedVehicle = useMemo(() => {
-    return selectedVehicles[0] || null;
-  }, [selectedVehicles]);
+    return selectedVehicles.find((vehicle) => getVehicleId(vehicle) === selectedVehicleId) || selectedVehicles[0] || null;
+  }, [selectedVehicleId, selectedVehicles]);
   const estimatedDistanceKm = useMemo(
     () => calculateDistanceKm(pickupCoords, dropCoords),
     [dropCoords, pickupCoords],
@@ -1313,25 +1426,38 @@ const SenderReceiverDetails = () => {
       return null;
     }
 
+    // Dynamic Helper Calculation
+    let helperCharge = 0;
+    if (helperType === 'loading') helperCharge = loadingRate;
+    else if (helperType === 'unloading') helperCharge = unloadingRate;
+    else if (helperType === 'both') helperCharge = loadingRate + unloadingRate;
+
+    const baseDistance = Number(primaryFare.baseDistance || 0);
+    const subtotal = Number(primaryFare.subtotal || 0) + helperCharge;
+    const serviceTaxPercentage = Number(primaryFare.serviceTaxPercentage || 0);
+    const serviceTaxAmount = (subtotal * serviceTaxPercentage) / 100;
+    const total = subtotal + serviceTaxAmount;
+
     return {
-      min: primaryFare.total,
-      max: primaryFare.total,
-      approx: Math.round(primaryFare.total),
+      min: total,
+      max: total,
+      approx: Math.round(total),
       dynamic: true,
-      minBaseDistance: Number(primaryFare.baseDistance || 0),
-      maxBaseDistance: Number(primaryFare.baseDistance || 0),
-      subtotal: Number(primaryFare.subtotal || 0),
-      serviceTaxPercentage: Number(primaryFare.serviceTaxPercentage || 0),
-      serviceTaxAmount: Number(primaryFare.serviceTaxAmount || 0),
+      minBaseDistance: baseDistance,
+      maxBaseDistance: baseDistance,
+      subtotal: subtotal,
+      serviceTaxPercentage: serviceTaxPercentage,
+      serviceTaxAmount: serviceTaxAmount,
+      helperCharge: helperCharge,
     };
-  }, [drop, effectiveDistanceKm, primarySelectedVehicle]);
+  }, [drop, effectiveDistanceKm, primarySelectedVehicle, helperType, loadingRate, unloadingRate]);
 
   const validate = () => {
     const nextErrors = {};
     if (!senderName.trim()) nextErrors.senderName = 'Sender name is required';
     if (!PHONE_REGEX.test(senderMobile)) nextErrors.senderMobile = 'Enter a valid 10-digit number';
-    if (!receiverName.trim()) nextErrors.receiverName = 'Receiver name is required';
-    if (!PHONE_REGEX.test(receiverMobile)) nextErrors.receiverMobile = 'Enter a valid 10-digit number';
+    if (!effectiveReceiverName) nextErrors.receiverName = 'Receiver name is required';
+    if (!PHONE_REGEX.test(effectiveReceiverMobile)) nextErrors.receiverMobile = 'Enter a valid 10-digit number';
     if (!pickup.trim()) nextErrors.pickup = 'Pickup location is required';
     if (!drop.trim()) nextErrors.drop = 'Drop location is required';
     setErrors(nextErrors);
@@ -1406,8 +1532,8 @@ const SenderReceiverDetails = () => {
         dropCoords,
         senderName,
         senderMobile,
-        receiverName,
-        receiverMobile,
+        receiverName: effectiveReceiverName,
+        receiverMobile: effectiveReceiverMobile,
       },
     });
   };
@@ -1715,6 +1841,13 @@ const SenderReceiverDetails = () => {
       }
     }
 
+    const resolvedVehicle = selectedVehicles.find((vehicle) => getVehicleId(vehicle) === selectedVehicleId) || selectedVehicles[0] || null;
+    if (!resolvedVehicle) {
+      return;
+    }
+
+    const selectedVehicleFare = calculateVehicleFare(resolvedVehicle, effectiveDistanceKm);
+
     setIsContactSheetOpen(false);
     navigate(`${routePrefix}/parcel/searching`, {
       state: {
@@ -1725,26 +1858,52 @@ const SenderReceiverDetails = () => {
         dropCoords: resolvedDropCoords,
         senderName,
         senderMobile,
-        receiverName,
-        receiverMobile,
+        receiverName: effectiveReceiverName,
+        receiverMobile: effectiveReceiverMobile,
         paymentMethod: 'Cash',
-        fare: estimatedFare?.approx ?? estimatedFare?.min ?? null,
-        estimatedFare,
+        selectedVehicle: resolvedVehicle,
+        selectedVehicles,
+        selectedVehicleId: getVehicleId(resolvedVehicle),
+        selectedVehicleIds: selectedVehicles.map((vehicle) => getVehicleId(vehicle)).filter(Boolean),
+        vehicleTypeId: getVehicleId(resolvedVehicle),
+        vehicleTypeIds: selectedVehicles.map((vehicle) => getVehicleId(vehicle)).filter(Boolean),
+        fare: selectedVehicleFare?.total ?? estimatedFare?.approx ?? estimatedFare?.min ?? null,
+        estimatedFare: selectedVehicleFare
+          ? {
+              approx: Math.round(selectedVehicleFare.total),
+              min: selectedVehicleFare.total,
+              max: selectedVehicleFare.total,
+              subtotal: selectedVehicleFare.subtotal,
+              serviceTaxPercentage: selectedVehicleFare.serviceTaxPercentage,
+              serviceTaxAmount: selectedVehicleFare.serviceTaxAmount,
+              minBaseDistance: selectedVehicleFare.baseDistance,
+              maxBaseDistance: selectedVehicleFare.baseDistance,
+            }
+          : estimatedFare,
         estimatedDistanceKm,
         deliveryScope: parcelState.deliveryScope || 'city',
         isOutstation: Boolean(parcelState.isOutstation || parcelState.deliveryScope === 'outstation'),
         parcel: {
-          category: parcelState.parcelType || 'Parcel',
-          weight: parcelState.weight || 'Under 5kg',
+          category: goodsCategory || parcelState.parcelType || 'Parcel',
+          weight: goodsWeight || parcelState.weight || 'Under 5kg',
           description: parcelState.description || '',
           deliveryCategory: parcelState.deliveryCategory || parcelState.parcel?.deliveryCategory || '',
+          goodsTypeVehicleIds: parcelState.goodsTypeVehicleIds || parcelState.parcel?.goodsTypeVehicleIds || [],
           goodsTypeFor: parcelState.goodsTypeFor || parcelState.parcel?.goodsTypeFor || '',
           deliveryScope: parcelState.deliveryScope || 'city',
           isOutstation: Boolean(parcelState.isOutstation || parcelState.deliveryScope === 'outstation'),
           senderName,
           senderMobile,
-          receiverName,
-          receiverMobile,
+          receiverName: effectiveReceiverName,
+          receiverMobile: effectiveReceiverMobile,
+          // === SOW Fields ===
+          helperBooked: helperType !== 'none',
+          helperType,
+          loadingCharge: helperType === 'loading' || helperType === 'both' ? loadingRate : 0,
+          unloadingCharge: helperType === 'unloading' || helperType === 'both' ? unloadingRate : 0,
+          isFragile: fragile,
+          warehousePickupId: selectedWarehouse?.role === 'pickup' ? selectedWarehouse.id : null,
+          warehouseDropId: selectedWarehouse?.role === 'drop' ? selectedWarehouse.id : null,
         },
         isParcel: true,
         searchNonce: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -1820,92 +1979,251 @@ const SenderReceiverDetails = () => {
         >
           <div className="space-y-3">
             {/* Pickup Row */}
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-center gap-0.5 shrink-0">
-                <div className="w-5 h-5 rounded-full border-2 border-emerald-700 bg-white/70 flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-center gap-0.5 shrink-0">
+                  <div className="w-5 h-5 rounded-full border-2 border-emerald-700 bg-white/70 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
+                  </div>
+                </div>
+                <div
+                  className={`flex-1 flex bg-transparent border rounded-2xl px-4 py-2.5 transition-all cursor-pointer items-center ${
+                    activeInput === 'pickup' ? 'border-slate-900 ring-2 ring-slate-950/10 dark:border-white dark:ring-white/10 text-slate-800 dark:text-white' : 'border-slate-100 dark:border-zinc-800/60 hover:bg-slate-100/50 dark:hover:bg-zinc-800/50'
+                  } ${errors.pickup ? 'border-red-400' : ''}`}
+                  onClick={() => setActiveInput('pickup')}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Pick Up From</p>
+                    <input
+                      type="text"
+                      value={pickup}
+                      onChange={(e) => {
+                        setPickup(e.target.value);
+                        clearError('pickup');
+                      }}
+                      onFocus={() => setActiveInput('pickup')}
+                      placeholder="Search pickup location..."
+                      className="w-full bg-transparent border-none text-[14px] font-bold text-slate-800 dark:text-slate-100 focus:outline-none placeholder:text-slate-450 mt-0.5"
+                    />
+                  </div>
+                  {pickup.length > 0 && activeInput === 'pickup' && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPickup('');
+                      }} 
+                      className="ml-2 shrink-0"
+                    >
+                      <X size={16} className="text-slate-300 hover:text-slate-600 transition-colors" />
+                    </button>
+                  )}
                 </div>
               </div>
-              <div
-                className={`flex-1 flex bg-transparent border rounded-2xl px-4 py-2.5 transition-all cursor-pointer items-center ${
-                  activeInput === 'pickup' ? 'border-slate-900 ring-2 ring-slate-950/10 dark:border-white dark:ring-white/10 text-slate-800 dark:text-white' : 'border-slate-100 dark:border-zinc-800/60 hover:bg-slate-100/50 dark:hover:bg-zinc-800/50'
-                } ${errors.pickup ? 'border-red-400' : ''}`}
-                onClick={() => setActiveInput('pickup')}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Pick Up From</p>
-                  <input
-                    type="text"
-                    value={pickup}
-                    onChange={(e) => {
-                      setPickup(e.target.value);
-                      clearError('pickup');
+              {goodsSettings.enable_warehouse_pickup && warehouses.filter(w => w.is_pickup).length > 0 && (
+                <div className="ml-8 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveWarehouseTarget('pickup');
+                      setIsWarehouseModalOpen(true);
                     }}
-                    onFocus={() => setActiveInput('pickup')}
-                    placeholder="Search pickup location..."
-                    className="w-full bg-transparent border-none text-[14px] font-bold text-slate-800 dark:text-slate-100 focus:outline-none placeholder:text-slate-450 mt-0.5"
-                  />
-                </div>
-                {pickup.length > 0 && activeInput === 'pickup' && (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPickup('');
-                    }} 
-                    className="ml-2 shrink-0"
+                    className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50/50 dark:bg-zinc-900/40 border border-blue-100/50 dark:border-zinc-800/60 rounded-xl px-2.5 py-1 transition-all"
                   >
-                    <X size={16} className="text-slate-300 hover:text-slate-600 transition-colors" />
+                    🏪 Choose Warehouse Pickup
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Dotted connector */}
             <div className="ml-[9px] h-2 w-[1.5px] border-l-[1.5px] border-dotted border-slate-300/70 dark:border-zinc-800/60" />
 
             {/* Drop Row */}
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-center gap-0.5 shrink-0">
-                <div className="w-5 h-5 rounded-full border-2 border-orange-600 bg-white/70 flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-600" />
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-center gap-0.5 shrink-0">
+                  <div className="w-5 h-5 rounded-full border-2 border-orange-600 bg-white/70 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-600" />
+                  </div>
+                </div>
+                <div
+                  className={`flex-1 flex bg-transparent border rounded-2xl px-4 py-2.5 transition-all cursor-pointer items-center ${
+                    activeInput === 'drop' ? 'border-slate-900 ring-2 ring-slate-950/10 dark:border-white dark:ring-white/10 text-slate-800 dark:text-white' : 'border-slate-100 dark:border-zinc-800/60 hover:bg-slate-100/50 dark:hover:bg-zinc-800/50'
+                  } ${errors.drop ? 'border-red-400' : ''}`}
+                  onClick={() => setActiveInput('drop')}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Deliver To</p>
+                    <input
+                      ref={dropInputRef}
+                      type="text"
+                      value={drop}
+                      autoFocus={activeInput === 'drop'}
+                      onFocus={() => setActiveInput('drop')}
+                      onChange={(e) => {
+                        setDrop(e.target.value);
+                        clearError('drop');
+                      }}
+                      placeholder="Search drop location..."
+                      className="w-full bg-transparent border-none text-[14px] font-bold text-slate-800 dark:text-slate-100 focus:outline-none placeholder:text-slate-455 mt-0.5"
+                    />
+                  </div>
+                  {drop.length > 0 && activeInput === 'drop' && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDrop('');
+                      }} 
+                      className="ml-2 shrink-0"
+                    >
+                      <X size={16} className="text-slate-300 hover:text-slate-600 transition-colors" />
+                    </button>
+                  )}
                 </div>
               </div>
-              <div
-                className={`flex-1 flex bg-transparent border rounded-2xl px-4 py-2.5 transition-all cursor-pointer items-center ${
-                  activeInput === 'drop' ? 'border-slate-900 ring-2 ring-slate-950/10 dark:border-white dark:ring-white/10 text-slate-800 dark:text-white' : 'border-slate-100 dark:border-zinc-800/60 hover:bg-slate-100/50 dark:hover:bg-zinc-800/50'
-                } ${errors.drop ? 'border-red-400' : ''}`}
-                onClick={() => setActiveInput('drop')}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Deliver To</p>
-                  <input
-                    ref={dropInputRef}
-                    type="text"
-                    value={drop}
-                    autoFocus={activeInput === 'drop'}
-                    onFocus={() => setActiveInput('drop')}
-                    onChange={(e) => {
-                      setDrop(e.target.value);
-                      clearError('drop');
+              {goodsSettings.enable_warehouse_drop && warehouses.filter(w => w.is_drop).length > 0 && (
+                <div className="ml-8 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveWarehouseTarget('drop');
+                      setIsWarehouseModalOpen(true);
                     }}
-                    placeholder="Search drop location..."
-                    className="w-full bg-transparent border-none text-[14px] font-bold text-slate-800 dark:text-slate-100 focus:outline-none placeholder:text-slate-450 mt-0.5"
-                  />
-                </div>
-                {drop.length > 0 && activeInput === 'drop' && (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDrop('');
-                    }} 
-                    className="ml-2 shrink-0"
+                    className="text-[11px] font-black text-orange-600 hover:text-orange-700 flex items-center gap-1 bg-orange-50/50 dark:bg-zinc-900/40 border border-orange-100/50 dark:border-zinc-800/60 rounded-xl px-2.5 py-1 transition-all"
                   >
-                    <X size={16} className="text-slate-300 hover:text-slate-600 transition-colors" />
+                    🏪 Choose Warehouse Dropoff
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
+        </motion.div>
+
+        {/* Goods Details & Helper Booking (SOW section) */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 rounded-[28px] bg-white dark:bg-[#111827] p-5 shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-slate-50 dark:border-zinc-850"
+        >
+          <button
+            type="button"
+            onClick={() => setShowGoodsCollapse(!showGoodsCollapse)}
+            className="flex w-full items-center justify-between font-bold text-slate-800 dark:text-white"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-black uppercase tracking-wider">📦 Goods &amp; Helper Details</span>
+              {(goodsWeight || helperType !== 'none') && (
+                <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[9px] font-black text-yellow-700">
+                  Configured
+                </span>
+              )}
+            </div>
+            <ChevronRight size={18} className={`transition-transform ${showGoodsCollapse ? 'rotate-90' : ''}`} />
+          </button>
+
+          {showGoodsCollapse && (
+            <div className="mt-4 space-y-4 border-t border-slate-100 dark:border-zinc-800/60 pt-4">
+              {/* Category */}
+              {goodsSettings.show_material_category && (
+                <div>
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">Material Category</label>
+                  <select
+                    value={goodsCategory}
+                    onChange={(e) => setGoodsCategory(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none"
+                  >
+                    <option value="Household">Household Goods</option>
+                    <option value="Furniture">Furniture</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Construction">Construction Material</option>
+                    <option value="Grocery">Grocery &amp; FMCG</option>
+                    <option value="Industrial">Industrial Equipment</option>
+                    <option value="Custom">Other / Custom</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Weight */}
+              {goodsSettings.show_weight_field && (
+                <div>
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">Approximate Weight Category</label>
+                  <select
+                    value={['Under 5kg', '5kg - 20kg', '20kg - 100kg', '100kg - 500kg', 'Above 500kg'].includes(goodsWeight) ? goodsWeight : 'custom'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val !== 'custom') {
+                        setGoodsWeight(val);
+                      } else {
+                        setGoodsWeight('150');
+                      }
+                    }}
+                    className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none mb-2"
+                  >
+                    <option value="Under 5kg">Under 5 kg (Recommended: 2 Wheeler)</option>
+                    <option value="5kg - 20kg">5 kg - 20 kg (Recommended: 2 Wheeler/Auto)</option>
+                    <option value="20kg - 100kg">20 kg - 100 kg (Recommended: Auto Rickshaw)</option>
+                    <option value="100kg - 500kg">100 kg - 500 kg (Recommended: Tata Ace / Mini Truck)</option>
+                    <option value="Above 500kg">Above 500 kg (Recommended: LCV / Pickup Truck)</option>
+                    <option value="custom">Enter Custom Weight (KG)</option>
+                  </select>
+                  {!['Under 5kg', '5kg - 20kg', '20kg - 100kg', '100kg - 500kg', 'Above 500kg'].includes(goodsWeight) && (
+                    <input
+                      type="number"
+                      min="1"
+                      value={goodsWeight}
+                      onChange={(e) => setGoodsWeight(e.target.value)}
+                      placeholder="Enter custom weight in kg"
+                      className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none"
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Helpers */}
+              {goodsSettings.enable_helper_booking && (
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-450">Book Helper / Labour</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'none', label: 'No Helper' },
+                      { id: 'loading', label: `Loading Only (+₹${loadingRate})` },
+                      { id: 'unloading', label: `Unloading Only (+₹${unloadingRate})` },
+                      { id: 'both', label: `Both Helpers (+₹${loadingRate + unloadingRate})` },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setHelperType(opt.id)}
+                        className={`rounded-2xl border p-3 text-center text-xs font-black transition-all ${
+                          helperType === opt.id
+                            ? 'border-yellow-400 bg-yellow-50/50 text-yellow-800'
+                            : 'border-slate-100 bg-slate-50/30 text-slate-500 hover:border-slate-200'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Fragile */}
+              {goodsSettings.show_fragile_toggle && (
+                <div className="flex items-center justify-between rounded-2xl bg-slate-50/30 p-3 border border-slate-100/50">
+                  <div>
+                    <p className="text-xs font-black text-slate-800 dark:text-slate-200">Fragile Goods?</p>
+                    <p className="text-[10px] text-slate-400">Requires extra packaging &amp; careful driving</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={fragile}
+                    onChange={(e) => setFragile(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-350 text-yellow-500 focus:ring-yellow-400"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
 
         {/* Action Pills */}
@@ -2025,11 +2343,95 @@ const SenderReceiverDetails = () => {
           ) : null}
         </div>
 
+        <motion.section
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.12 }}
+          className={`mt-8 rounded-[30px] p-6 shadow-xl relative overflow-hidden border transition-colors ${
+            isDark
+              ? 'bg-gradient-to-br from-slate-900 to-slate-950 text-white border-slate-800'
+              : 'bg-gradient-to-r from-amber-100 via-yellow-100 to-yellow-50 text-slate-900 border-yellow-200/60 shadow-md'
+          }`}
+        >
+          <div className={`absolute right-[-20px] top-[-20px] h-36 w-36 rounded-full blur-2xl pointer-events-none ${isDark ? 'bg-indigo-500/10' : 'bg-yellow-400/20'}`} />
+          <div className={`absolute left-[-20px] bottom-[-20px] h-36 w-36 rounded-full blur-2xl pointer-events-none ${isDark ? 'bg-emerald-500/5' : 'bg-emerald-400/10'}`} />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Available Delivery Vehicles</p>
+                <p className={`mt-1 text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {isVehicleSelectionReady ? 'Choose a vehicle for this shipment' : 'Complete the delivery details first'}
+                </p>
+                <p className={`mt-1 text-[11px] font-bold ${isDark ? 'text-slate-450' : 'text-slate-600'}`}>
+                  {isVehicleSelectionReady
+                    ? `Showing only vehicles enabled for ${goodsCategory || parcelState.parcelType || 'this goods type'}`
+                    : 'Pickup, drop, sender, and receiver details are required before vehicle selection.'}
+                </p>
+              </div>
+              <div className={`flex h-14 w-14 items-center justify-center rounded-2xl shrink-0 ${isDark ? 'bg-white/10 border border-white/10' : 'bg-white shadow-sm border border-slate-200/60'}`}>
+                <PackageCheck size={28} className={isDark ? 'text-emerald-400' : 'text-emerald-600'} />
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {!isVehicleSelectionReady ? (
+                <div className={`rounded-2xl border px-4 py-4 text-[12px] font-bold ${isDark ? 'border-slate-800 bg-slate-950/50 text-slate-400' : 'border-yellow-200 bg-white/70 text-slate-600'}`}>
+                  Vehicle options will appear here once all delivery details are filled in.
+                </div>
+              ) : loadingCompatibleVehicles ? (
+                <div className={`rounded-2xl border px-4 py-5 text-[12px] font-bold ${isDark ? 'border-slate-800 bg-slate-950/50 text-slate-400' : 'border-yellow-200 bg-white/70 text-slate-600'}`}>
+                  Scanning compatible fleet...
+                </div>
+              ) : selectedVehicles.length ? (
+                selectedVehicles.map((vehicle, index) => {
+                  const vehicleId = getVehicleId(vehicle);
+                  const isSelected = vehicleId === selectedVehicleId;
+                  return (
+                    <button
+                      key={vehicleId || index}
+                      type="button"
+                      onClick={() => setSelectedVehicleId(vehicleId)}
+                      className={`w-full rounded-[24px] border px-4 py-4 text-left transition-all ${
+                        isSelected
+                          ? (isDark ? 'border-emerald-400 bg-emerald-500/10' : 'border-emerald-300 bg-white ring-2 ring-emerald-100')
+                          : (isDark ? 'border-slate-800 bg-slate-950/40 hover:border-slate-700' : 'border-white/60 bg-white/80 hover:border-yellow-200')
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`truncate text-[15px] font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{vehicle.name}</p>
+                            {index === 0 ? (
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isDark ? 'bg-yellow-400/10 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>
+                                Best Match
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className={`mt-1 text-[11px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Max {Number(vehicle.capacity || 0)} kg{vehicle.size ? ` | ${vehicle.size}` : ''}{vehicle.short_description ? ` | ${vehicle.short_description}` : ''}
+                          </p>
+                        </div>
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-full border ${isSelected ? 'border-emerald-500 bg-emerald-500 text-white' : (isDark ? 'border-slate-700 text-slate-500' : 'border-slate-300 text-slate-400')}`}>
+                          <CheckCircle2 size={16} />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className={`rounded-2xl border px-4 py-4 text-[12px] font-bold ${isDark ? 'border-slate-800 bg-slate-950/50 text-slate-400' : 'border-yellow-200 bg-white/70 text-slate-600'}`}>
+                  No compatible delivery vehicle is enabled for this goods type and weight range yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.section>
+
         <motion.section 
           initial={{ opacity: 0 }} 
           animate={{ opacity: 1 }} 
           transition={{ delay: 0.12 }} 
-          className={`mt-8 rounded-[30px] p-6 shadow-xl relative overflow-hidden border transition-colors ${
+          className={`hidden mt-8 rounded-[30px] p-6 shadow-xl relative overflow-hidden border transition-colors ${
             isDark 
               ? 'bg-gradient-to-br from-slate-900 to-slate-950 text-white border-slate-800' 
               : 'bg-gradient-to-r from-amber-100 via-yellow-100 to-yellow-50 text-slate-900 border-yellow-200/60 shadow-md'
@@ -2048,6 +2450,12 @@ const SenderReceiverDetails = () => {
                   ? `Based on ${routeEstimate.source === 'road' ? 'road' : 'approx'} travel of ${effectiveDistanceKm.toFixed(1)} km`
                   : 'Enter drop location to view live fare'}
               </p>
+              {primarySelectedVehicle && (
+                <div className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wider ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
+                  <span>🚚 Suggested Vehicle:</span>
+                  <span className="font-bold capitalize">{primarySelectedVehicle.name}</span>
+                </div>
+              )}
               {estimatedFare ? (
                 <>
                   <p className={`mt-1 text-[10px] font-semibold ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
@@ -2076,16 +2484,93 @@ const SenderReceiverDetails = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleProceed}
-            className="relative flex h-16 w-full items-center justify-center gap-3 rounded-[24px] bg-slate-900 text-[15px] font-black text-white shadow-[0_20px_40px_rgba(15,23,42,0.2)] group overflow-hidden"
+            disabled={!isVehicleSelectionReady || loadingCompatibleVehicles || !primarySelectedVehicle}
+            className="relative flex h-16 w-full items-center justify-center gap-3 rounded-[24px] bg-slate-900 text-[15px] font-black text-white shadow-[0_20px_40px_rgba(15,23,42,0.2)] group overflow-hidden disabled:opacity-50"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-slate-800 to-slate-950 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="relative z-10">
-               {drop ? 'Confirm Receiver Details' : 'Select Drop Location'}
+               {!isVehicleSelectionReady
+                 ? 'Complete Delivery Details'
+                 : loadingCompatibleVehicles
+                   ? 'Loading Vehicles...'
+                   : primarySelectedVehicle
+                     ? `Book ${primarySelectedVehicle.name}`
+                     : 'No Vehicle Available'}
             </span>
             <ChevronRight size={20} className="relative z-10 group-hover:translate-x-1 transition-transform" />
           </motion.button>
         </div>
       </div>
+      {/* Warehouse Selection Modal (SOW feature) */}
+      <AnimatePresence>
+        {isWarehouseModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md max-h-[80vh] overflow-y-auto rounded-[28px] bg-white dark:bg-[#111827] p-6 shadow-2xl space-y-4 text-slate-800 dark:text-slate-100"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+                <div>
+                  <h3 className="text-base font-black">Select Warehouse Location</h3>
+                  <p className="text-[10px] text-slate-400">Auto-fill address coordinates from database</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsWarehouseModalOpen(false)}
+                  className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                >
+                  <X size={18} className="text-slate-500" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {warehouses.filter(w => activeWarehouseTarget === 'pickup' ? w.is_pickup : w.is_drop).length === 0 ? (
+                  <p className="text-center py-8 text-xs font-semibold text-slate-400">No active warehouses for this category</p>
+                ) : (
+                  warehouses
+                    .filter(w => activeWarehouseTarget === 'pickup' ? w.is_pickup : w.is_drop)
+                    .map((w) => (
+                      <button
+                        key={w.id || w._id}
+                        type="button"
+                        onClick={() => {
+                          const addressString = `${w.name}, ${w.address}, ${w.city || ''}`;
+                          if (activeWarehouseTarget === 'pickup') {
+                            setPickup(addressString);
+                            setPickupCoords(w.coordinates || [75.8577, 22.7196]);
+                            clearError('pickup');
+                          } else {
+                            setDrop(addressString);
+                            setDropCoords(w.coordinates || [75.8577, 22.7196]);
+                            clearError('drop');
+                          }
+                          setSelectedWarehouse({ id: w.id || w._id, role: activeWarehouseTarget });
+                          setIsWarehouseModalOpen(false);
+                        }}
+                        className="w-full text-left rounded-2xl border border-slate-100 dark:border-zinc-800 p-4 hover:border-yellow-400 dark:hover:border-yellow-400 hover:bg-yellow-50/20 dark:hover:bg-yellow-950/20 transition-all flex items-start gap-3"
+                      >
+                        <div className="h-8 w-8 rounded-xl bg-yellow-100 dark:bg-yellow-950/50 flex items-center justify-center shrink-0 text-yellow-600 text-sm">
+                          🏪
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black">{w.name}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">{w.address}</p>
+                          {w.zone && (
+                            <span className="mt-1.5 inline-block rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 text-[9px] font-bold text-slate-500 dark:text-slate-400">
+                              Zone: {w.zone}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

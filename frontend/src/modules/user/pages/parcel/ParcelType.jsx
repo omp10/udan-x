@@ -1,84 +1,45 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { 
   ArrowLeft, 
   ChevronRight, 
   MapPin,
   ArrowRight,
-  Megaphone
+  Loader2
 } from 'lucide-react';
 import api from '../../../../shared/api/axiosInstance';
 import { useBaseGoogleMapsLoader } from '../../../admin/utils/googleMaps';
 import { getSavedLocation, getSavedLocationCoords, saveLocation } from '../../services/locationStore';
 import { useUserTheme } from '../../../../shared/context/UserThemeContext';
+import industrialImg from '@/assets/images/delivery/parcel_industrial.png';
 
-import trucksImg from '@/assets/images/delivery/trucks.png';
-import bikeImg from '@/assets/images/delivery/bike.png';
-import moversImg from '@/assets/images/delivery/movers.png';
-
-const Motion = motion;
 const PARCEL_BOOKING_DRAFT_KEY = 'parcelBookingDraft';
 const FALLBACK_PICKUP_LABEL = 'Choose your location';
+
 const unwrapResults = (response) => {
   const payload = response?.data?.data || response?.data || response;
   return payload?.results || (Array.isArray(payload) ? payload : []);
 };
 
-const toPlainData = (value) => {
-  if (value === null || value === undefined) {
-    return value;
-  }
-
-  try {
-    return JSON.parse(JSON.stringify(value));
-  } catch {
-    return null;
-  }
-};
-
-const getDeliveryPricingScore = (vehicle = {}) => {
-  const pricing = vehicle?.delivery_distance_pricing || {};
-  const enabled = Boolean(pricing?.enabled);
-  const basePrice = Number(pricing?.base_price || 0);
-  const distancePrice = Number(pricing?.distance_price || 0);
-  const baseDistance = Number(pricing?.base_distance ?? pricing?.free_distance ?? 0);
-
-  return Number(enabled) * 1000 + Number(basePrice > 0) * 100 + Number(distancePrice > 0) * 10 + Number(baseDistance > 0);
-};
-
-const getVehicleRecencyScore = (vehicle = {}) => {
-  const timestamp = new Date(vehicle?.updatedAt || vehicle?.createdAt || 0).getTime();
-  return Number.isFinite(timestamp) ? timestamp : 0;
-};
-
-const DELIVERY_CATEGORY_OPTIONS = [
-  {
-    id: 'trucks',
-    title: 'Trucks',
-    img: trucksImg,
-    searchTokens: ['truck', 'lcv', 'hcv', 'mcv', 'loader'],
-  },
-  {
-    id: '2wheeler',
-    title: '2 Wheeler',
-    img: bikeImg,
-    searchTokens: ['bike', 'scooter', 'cycle', '2-wheeler'],
-  },
-  {
-    id: 'auto',
-    title: 'Auto',
-    img: '/2_AutoRickshaw.png',
-    searchTokens: ['auto', 'rickshaw', 'tuk', '3-wheeler', 'three-wheeler'],
-  },
-  {
-    id: 'movers',
-    title: 'Packers & Movers',
-    img: moversImg,
-    searchTokens: ['mover', 'packers'],
-  }
-];
+const normalizeGoodsType = (item = {}) => ({
+  id: String(item._id || item.id || item.goods_type_name || item.name || ''),
+  title: String(item.name || item.goods_type_name || '').trim(),
+  description: String(item.description || item.weight_label || '').trim(),
+  img: item.image || item.icon || '',
+  category: String(item.delivery_category || '').trim().toLowerCase(),
+  weight: String(item.weight_label || '').trim(),
+  minWeightKg: Number(item.min_weight_kg || 0),
+  maxWeightKg: Number(item.max_weight_kg || 0),
+  sortOrder: Number(item.sort_order || 0),
+  goodsTypeVehicleIds: Array.isArray(item.goods_type_vehicle_ids)
+    ? item.goods_type_vehicle_ids.map((entry) => String(entry || '')).filter(Boolean)
+    : [],
+  goodsTypeFor: String(item.goods_types_for || item.goods_type_for || 'both').trim(),
+  active: Number(item.active ?? 1),
+  raw: item,
+});
 
 const ParcelType = () => {
   const { theme } = useUserTheme();
@@ -87,7 +48,7 @@ const ParcelType = () => {
   const savedLocation = getSavedLocation();
   const savedPickupLabel = String(savedLocation?.address || '').trim();
   const savedPickupCoords = getSavedLocationCoords();
-  const [vehicleTypes, setVehicleTypes] = useState([]);
+  const [goodsTypes, setGoodsTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pickupAddress, setPickupAddress] = useState(() => routeState.pickup || savedPickupLabel || FALLBACK_PICKUP_LABEL);
   const [pickupCoords, setPickupCoords] = useState(() => routeState.pickupCoords || savedPickupCoords || null);
@@ -96,34 +57,39 @@ const ParcelType = () => {
   const { isLoaded: isGoogleMapsLoaded } = useBaseGoogleMapsLoader();
 
   useEffect(() => {
-    const fetchVehicles = async () => {
+    const fetchGoodsTypes = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/users/vehicle-types');
+        const response = await api.get('/users/goods-types');
         const items = unwrapResults(response);
-        setVehicleTypes(items.filter(v => v.active && (v.transport_type === 'delivery' || v.transport_type === 'both')));
+        const normalizedItems = items
+          .map(normalizeGoodsType)
+          .filter((item) => item.active === 1 && item.title)
+          .sort((left, right) => {
+            const orderDelta = left.sortOrder - right.sortOrder;
+            if (orderDelta !== 0) return orderDelta;
+            return left.title.localeCompare(right.title);
+          });
+        setGoodsTypes(normalizedItems);
       } catch (err) {
-        console.error('Failed to load vehicles:', err);
+        console.error('Failed to load goods types:', err);
+        toast.error('Could not load delivery categories');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchVehicles();
+    fetchGoodsTypes();
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
-
     try {
       const draft = JSON.parse(window.sessionStorage.getItem(PARCEL_BOOKING_DRAFT_KEY) || '{}');
-
       if (!routeState.pickup && !savedPickupLabel && draft?.pickup) {
         setPickupAddress(String(draft.pickup || '').trim() || FALLBACK_PICKUP_LABEL);
       }
-
       if (!routeState.pickupCoords && !savedPickupCoords && Array.isArray(draft?.pickupCoords) && draft.pickupCoords.length === 2) {
         setPickupCoords(draft.pickupCoords);
       }
@@ -136,9 +102,7 @@ const ParcelType = () => {
     if (geolocationRequestedRef.current || !navigator.geolocation) {
       return;
     }
-
     geolocationRequestedRef.current = true;
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const nextCoords = [position.coords.longitude, position.coords.latitude];
@@ -160,7 +124,6 @@ const ParcelType = () => {
     if (!isGoogleMapsLoaded || !window.google?.maps?.Geocoder || !Array.isArray(pickupCoords) || pickupCoords.length !== 2) {
       return;
     }
-
     let active = true;
     const geocoder = new window.google.maps.Geocoder();
     const [lng, lat] = pickupCoords;
@@ -169,15 +132,12 @@ const ParcelType = () => {
       if (!active) {
         return;
       }
-
       const nextAddress = status === 'OK' && results?.[0]?.formatted_address
         ? results[0].formatted_address
         : '';
-
       if (!nextAddress) {
         return;
       }
-
       setPickupAddress(nextAddress);
       saveLocation({
         address: nextAddress,
@@ -192,55 +152,27 @@ const ParcelType = () => {
     };
   }, [isGoogleMapsLoaded, pickupCoords]);
 
-  const handleCategorySelect = (category) => {
+  const handleParcelTypeSelect = (parcelTypeOpt) => {
     if (loading) {
-      toast('Vehicle options are still loading. Try again in a sec.', {
+      toast('Categories are still loading. Try again in a sec.', {
         duration: 2200,
       });
       return;
     }
 
-    const filteredVehicles = vehicleTypes.filter((vehicle) => {
-      const configuredCategory = String(vehicle.delivery_category || '').trim().toLowerCase();
-      if (configuredCategory) {
-        return configuredCategory === category.id;
-      }
-
-      const name = String(vehicle.name || '').toLowerCase();
-      const iconType = String(vehicle.icon_types || '').toLowerCase();
-      return category.searchTokens.some((token) => name.includes(token) || iconType.includes(token));
-    });
-    const prioritizedVehicles = [...filteredVehicles].sort((left, right) => {
-      const pricingDelta = getDeliveryPricingScore(right) - getDeliveryPricingScore(left);
-      if (pricingDelta !== 0) {
-        return pricingDelta;
-      }
-
-      const recencyDelta = getVehicleRecencyScore(right) - getVehicleRecencyScore(left);
-      if (recencyDelta !== 0) {
-        return recencyDelta;
-      }
-
-      return String(left?.name || '').localeCompare(String(right?.name || ''));
-    });
-
-    const selectedVehicle = prioritizedVehicles[0] || vehicleTypes[0];
-    const selectedVehicles = (prioritizedVehicles.length ? prioritizedVehicles : selectedVehicle ? [selectedVehicle] : [])
-      .map((vehicle) => toPlainData(vehicle))
-      .filter(Boolean);
-    const plainSelectedVehicle = toPlainData(selectedVehicle);
-    const selectedVehicleIds = prioritizedVehicles.length
-      ? prioritizedVehicles.map((vehicle) => vehicle?._id || vehicle?.id).filter(Boolean)
-      : [plainSelectedVehicle?._id || plainSelectedVehicle?.id].filter(Boolean);
-
     const nextState = {
-      parcelType: 'General Parcel',
-      selectedVehicle: plainSelectedVehicle,
-      selectedVehicles,
-      selectedVehicleId: plainSelectedVehicle?._id || plainSelectedVehicle?.id,
-      selectedVehicleIds,
-      category: category.id,
-      deliveryCategory: category.id,
+      selectedGoodsType: parcelTypeOpt.raw,
+      selectedGoodsTypeId: parcelTypeOpt.id,
+      parcelType: parcelTypeOpt.title,
+      category: parcelTypeOpt.category,
+      deliveryCategory: parcelTypeOpt.category,
+      goodsCategory: parcelTypeOpt.title,
+      goodsWeight: parcelTypeOpt.weight,
+      weight: parcelTypeOpt.weight,
+      goodsTypeVehicleIds: parcelTypeOpt.goodsTypeVehicleIds,
+      goodsTypeFor: parcelTypeOpt.goodsTypeFor,
+      minWeightKg: parcelTypeOpt.minWeightKg,
+      maxWeightKg: parcelTypeOpt.maxWeightKg,
       pickup: pickupAddress,
       pickupCoords,
     };
@@ -274,8 +206,8 @@ const ParcelType = () => {
             className={`rounded-[24px] p-4 flex items-center gap-4 shadow-lg border transition-all cursor-pointer ${theme === 'dark' ? 'bg-[#111827] border-zinc-800/85 text-white' : 'bg-white border-white/50 text-slate-900'}`}
             onClick={() => navigate('/taxi/user/parcel/details', { state: { editPickup: true, pickup: pickupAddress, pickupCoords } })}
            >
-             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${theme === 'dark' ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-               <MapPin size={20} className="text-emerald-500 fill-emerald-500/20" />
+             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${theme === 'dark' ? 'bg-emerald-50/10' : 'bg-emerald-50'}`}>
+                <MapPin size={20} className="text-emerald-500 fill-emerald-500/20" />
              </div>
              <div className="flex-1 min-w-0">
                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Pick up from</p>
@@ -288,33 +220,64 @@ const ParcelType = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 px-5 -mt-10 z-20 pb-10">
-        
+
+        <div className={`mb-4 rounded-2xl border px-4 py-3 ${theme === 'dark' ? 'border-zinc-800 bg-[#111827]' : 'border-slate-100 bg-white'}`}>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-600">Step 1 of 3</p>
+          <h1 className={`mt-1 text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Choose your goods category</h1>
+          <p className="mt-1 text-xs font-semibold text-slate-500">This list is controlled by the admin panel. Each category carries its own weight band and vehicle rules.</p>
+        </div>
+
         {/* Category Grid */}
+        {loading ? (
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-[24px] border border-dashed border-slate-200 bg-white/70">
+            <Loader2 size={28} className="animate-spin text-yellow-500" />
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Loading categories...</p>
+          </div>
+        ) : goodsTypes.length ? (
         <div className="grid grid-cols-2 gap-3 mb-8">
-          {DELIVERY_CATEGORY_OPTIONS.map((cat, idx) => (
+          {goodsTypes.map((cat, idx) => (
             <motion.button
               key={cat.id}
               type="button"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: idx * 0.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleCategorySelect(cat)}
-              className={`rounded-[24px] p-4 flex flex-col items-center gap-4 shadow-md border hover:shadow-xl transition-all duration-300 aspect-[0.85/1] group ${theme === 'dark' ? 'bg-[#111827] border-zinc-800/80' : 'bg-white border-slate-100/50'}`}
+              transition={{ delay: idx * 0.08 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => handleParcelTypeSelect(cat)}
+              className={`rounded-[24px] p-4 flex flex-col items-center gap-3 shadow-md border hover:shadow-xl transition-all duration-300 aspect-[0.82/1] group ${theme === 'dark' ? 'bg-[#111827] border-zinc-800/80' : 'bg-white border-slate-100/50'}`}
             >
               <div className="flex-1 flex items-center justify-center w-full">
-                <img 
-                  src={cat.img} 
-                  alt={cat.title} 
-                  className="w-full h-auto object-contain max-h-[110px] sm:max-h-[120px] drop-shadow-md transition-transform duration-300 group-hover:scale-105"
-                />
+                {cat.img ? (
+                  <img 
+                    src={cat.img} 
+                    alt={cat.title} 
+                    className="w-full h-auto object-contain max-h-[85px] sm:max-h-[95px] drop-shadow-md transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <img 
+                    src={industrialImg} 
+                    alt={cat.title} 
+                    className="w-full h-auto object-contain max-h-[85px] sm:max-h-[95px] opacity-25 grayscale transition-transform duration-300 group-hover:scale-105"
+                  />
+                )}
               </div>
-              <p className={`text-[14px] font-black text-center leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-                {cat.title}
-              </p>
+              <div className="text-center w-full">
+                <p className={`text-[13px] font-black leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                  {cat.title}
+                </p>
+                <p className="text-[10px] font-bold text-slate-400 mt-1 leading-none">
+                  {cat.description || cat.weight || 'Tap to continue'}
+                </p>
+              </div>
             </motion.button>
           ))}
         </div>
+        ) : (
+          <div className={`mb-8 rounded-[24px] border px-5 py-8 text-center ${theme === 'dark' ? 'border-zinc-800 bg-[#111827]' : 'border-slate-200 bg-white'}`}>
+            <p className={`text-sm font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>No delivery categories are live yet</p>
+            <p className="mt-2 text-xs font-semibold text-slate-500">Create active Goods Types in the admin panel to control this screen.</p>
+          </div>
+        )}
 
         {/* Promo Banner: Explore Porter Rewards */}
         <motion.div 
@@ -356,7 +319,7 @@ const ParcelType = () => {
                 {/* Simulated Road */}
                 <div className={`absolute bottom-0 left-0 right-0 h-4 rounded-full blur-sm ${theme === 'dark' ? 'bg-zinc-800/50' : 'bg-slate-200/50'}`} />
                 <img 
-                  src={trucksImg} 
+                  src={industrialImg} 
                   alt="Delivery Truck" 
                   className="w-full h-full object-contain opacity-20 grayscale brightness-125"
                 />

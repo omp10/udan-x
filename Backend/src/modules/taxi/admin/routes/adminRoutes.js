@@ -144,7 +144,10 @@ import {
   getServiceStores,
   getSmsSettings,
   getSubscriptionPlans,
+  getDriverSubscriptions,
+  getOwnerSubscriptions,
   getCustomerSubscriptionPlans,
+  getPartnerSubscriptionsAnalytics,
   getSubscriptionSettings,
   getUserSubscriptions,
   updateSubscriptionSettings,
@@ -282,6 +285,8 @@ adminRouter.patch('/admin/employees/:id', updateEmployee);
 adminRouter.patch('/admin/users/:id', updateUser);
 adminRouter.delete('/admin/users/:id', deleteUser);
 adminRouter.get('/admin/users/:id/subscriptions', getUserSubscriptions);
+adminRouter.get('/admin/drivers/:id/subscriptions', getDriverSubscriptions);
+adminRouter.get('/admin/owners/:id/subscriptions', getOwnerSubscriptions);
 adminRouter.get('/admin/users/:id/requests', getUserRequests);
 adminRouter.get('/admin/users/:id/wallet-history', getUserWalletHistory);
 
@@ -321,6 +326,7 @@ adminRouter.get('/admin/driver-subscriptions/plans/list', getSubscriptionPlans);
 adminRouter.post('/admin/driver-subscriptions/plans/create', createSubscriptionPlan);
 adminRouter.get('/admin/driver-subscriptions/settings', getSubscriptionSettings);
 adminRouter.post('/admin/driver-subscriptions/settings', updateSubscriptionSettings);
+adminRouter.get('/admin/partner-subscriptions/analytics', getPartnerSubscriptionsAnalytics);
 adminRouter.get('/admin/user-subscriptions/plans/list', getCustomerSubscriptionPlans);
 adminRouter.post('/admin/user-subscriptions/plans/create', createCustomerSubscriptionPlan);
 

@@ -54,6 +54,12 @@ import { SupportTicket } from '../../support/models/SupportTicket.js';
 import TaxiTransportType from '../models/TaxiTransportType.js';
 import { comparePassword, hashPassword } from '../../driver/services/authService.js';
 import {
+  createPartnerSubscriptionPlan,
+  getPartnerSubscriptionAnalytics,
+  listPartnerSubscriptionPlans,
+  listPartnerSubscriptionsForEntity,
+} from '../../services/partnerSubscriptionService.js';
+import {
   applyDriverWalletAdjustment,
   serializeDriverWallet,
 } from '../../driver/services/walletService.js';
@@ -2118,8 +2124,21 @@ const serializeGoodsType = (item) => ({
   goods_type_name: item.goods_type_name || item.name || '',
   translation_dataset: item.translation_dataset || '',
   goods_types_for: item.goods_types_for || 'both',
+  goods_type_for: item.goods_types_for || item.goods_type_for || 'both',
+  goods_type_vehicle_ids: Array.isArray(item.goods_type_vehicle_ids)
+    ? item.goods_type_vehicle_ids.map((vehicleId) => String(vehicleId))
+    : [],
   company_key: item.company_key || null,
   active: item.active !== undefined ? Number(item.active) : 1,
+  status: item.status || (Number(item.active) === 0 ? 'inactive' : 'active'),
+  icon: item.icon || '',
+  image: item.image || item.icon || '',
+  description: item.description || '',
+  delivery_category: item.delivery_category || '',
+  min_weight_kg: Number(item.min_weight_kg || 0),
+  max_weight_kg: Number(item.max_weight_kg || 0),
+  weight_label: item.weight_label || '',
+  sort_order: Number(item.sort_order || 0),
   created_at: item.createdAt,
   updated_at: item.updatedAt,
   goods_type_translation_words: item.goods_type_translation_words || [],
@@ -5611,23 +5630,15 @@ export const getReferralDashboard = async () => {
   };
 };
 
-export const listSubscriptionPlans = async () =>
-  SubscriptionPlan.find({ audience: 'driver' }).sort({ createdAt: -1 }).populate('vehicle_type_id').lean();
+export const listSubscriptionPlans = async ({ audience = 'driver' } = {}) =>
+  listPartnerSubscriptionPlans({ audience, activeOnly: false });
 export const createSubscriptionPlan = async (payload) => {
-  if (!String(payload?.name || '').trim()) {
-    throw new ApiError(400, 'Subscription name is required');
-  }
-
-  const plan = await SubscriptionPlan.create({
+  return createPartnerSubscriptionPlan({
     ...payload,
-    audience: 'driver',
-    amount: Number(payload.amount || 0),
-    duration: Number(payload.duration || 0),
+    audience: payload?.audience || 'driver',
     benefit_type: 'standard',
     ride_limit: 0,
-    active: true,
   });
-  return plan.toObject();
 };
 
 export const listCustomerSubscriptionPlans = async () =>
@@ -5699,6 +5710,15 @@ export const listUserSubscriptionsByUserId = async (userId) => {
     })),
   };
 };
+
+export const listDriverSubscriptionsByDriverId = async (driverId) =>
+  listPartnerSubscriptionsForEntity({ audience: 'driver', entityId: driverId });
+
+export const listOwnerSubscriptionsByOwnerId = async (ownerId) =>
+  listPartnerSubscriptionsForEntity({ audience: 'owner', entityId: ownerId });
+
+export const getPartnerSubscriptionsAnalytics = async () =>
+  getPartnerSubscriptionAnalytics();
 
 export const listServiceLocations = async (currentAdmin = null) => {
   await ensureServiceLocationsSeeded();
@@ -6600,9 +6620,20 @@ export const getVehicleTypeById = async (id) => {
   };
 };
 
-export const listPublicVehicleCatalog = async () => {
+export const listPublicVehicleCatalog = async (queryParams = {}) => {
+  const filterPayload = (payload) => {
+    const transportType = String(queryParams.transport_type || '').trim().toLowerCase();
+    const minCapacity = Math.max(0, Number(queryParams.min_capacity || 0));
+    const deliveryCategory = String(queryParams.delivery_category || '').trim().toLowerCase();
+    if (!transportType && !minCapacity && !deliveryCategory) return payload;
+    const results = payload.results.filter((item) =>
+      (!transportType || item.transport_type === transportType || item.transport_type === 'both')
+      && (!minCapacity || Number(item.capacity || 0) === 0 || Number(item.capacity || 0) >= minCapacity)
+      && (!deliveryCategory || !item.delivery_category || item.delivery_category === deliveryCategory));
+    return { ...payload, results, paginator: { ...payload.paginator, data: results, total: results.length, per_page: results.length, from: results.length ? 1 : 0, to: results.length } };
+  };
   if (publicVehicleCatalogCache.value && publicVehicleCatalogCache.expiresAt > Date.now()) {
-    return publicVehicleCatalogCache.value;
+    return filterPayload(publicVehicleCatalogCache.value);
   }
 
   const items = await Vehicle.find()
@@ -6649,7 +6680,7 @@ export const listPublicVehicleCatalog = async () => {
     expiresAt: Date.now() + PUBLIC_VEHICLE_CATALOG_CACHE_TTL_MS,
   };
 
-  return payload;
+  return filterPayload(payload);
 };
 
 export const listPublicRentalVehicleCatalog = async () => {
@@ -9735,7 +9766,7 @@ export const updateRentalBookingRequest = async (id, payload = {}, adminId = nul
 
 
 export const listGoodsTypes = async () => {
-  const items = await GoodsType.find().sort({ createdAt: -1 }).lean();
+  const items = await GoodsType.find().sort({ sort_order: 1, createdAt: -1 }).lean();
   const results = items.map(serializeGoodsType);
 
   return {
@@ -9773,13 +9804,32 @@ export const createGoodsType = async (payload) => {
     (typeof payload.active === 'boolean' ? (payload.active ? 1 : 0) : Number(payload.active)) :
     1;
 
+  const goodsTypeVehicleIds = Array.isArray(payload.goods_type_vehicle_ids)
+    ? payload.goods_type_vehicle_ids.map((value) => toObjectId(value)).filter(Boolean)
+    : [];
+
+  const minWeight = Math.max(0, Number(payload.min_weight_kg || 0));
+  const maxWeight = Math.max(0, Number(payload.max_weight_kg || 0));
+  if (maxWeight > 0 && maxWeight < minWeight) {
+    throw new ApiError(400, 'Maximum weight must be greater than or equal to minimum weight');
+  }
+
   const item = await GoodsType.create({
     goods_type_name: name.trim(),
     name: name.trim(),
     goods_types_for: payload.goods_types_for || payload.goods_type_for || 'both',
+    goods_type_vehicle_ids: goodsTypeVehicleIds,
     status: payload.status || (active === 1 ? 'active' : 'inactive'),
     active: active,
     translation_dataset: payload.translation_dataset || '',
+    icon: payload.icon || '',
+    image: payload.image || payload.icon || '',
+    description: payload.description || '',
+    delivery_category: String(payload.delivery_category || '').trim().toLowerCase(),
+    min_weight_kg: minWeight,
+    max_weight_kg: maxWeight,
+    weight_label: payload.weight_label || '',
+    sort_order: Number(payload.sort_order || 0),
   });
 
   return serializeGoodsType(item.toObject());
@@ -9797,6 +9847,48 @@ export const updateGoodsType = async (id, payload) => {
 
   if (payload.goods_types_for !== undefined || payload.goods_type_for !== undefined) {
     item.goods_types_for = payload.goods_types_for || payload.goods_type_for || 'both';
+  }
+
+  if (payload.goods_type_vehicle_ids !== undefined) {
+    item.goods_type_vehicle_ids = Array.isArray(payload.goods_type_vehicle_ids)
+      ? payload.goods_type_vehicle_ids.map((value) => toObjectId(value)).filter(Boolean)
+      : [];
+  }
+
+  if (payload.icon !== undefined) {
+    item.icon = payload.icon || '';
+  }
+
+  if (payload.image !== undefined || payload.icon !== undefined) {
+    item.image = payload.image || payload.icon || '';
+  }
+
+  if (payload.description !== undefined) {
+    item.description = payload.description || '';
+  }
+
+  if (payload.delivery_category !== undefined) {
+    item.delivery_category = String(payload.delivery_category || '').trim().toLowerCase();
+  }
+
+  if (payload.min_weight_kg !== undefined) {
+    item.min_weight_kg = Math.max(0, Number(payload.min_weight_kg || 0));
+  }
+
+  if (payload.max_weight_kg !== undefined) {
+    item.max_weight_kg = Math.max(0, Number(payload.max_weight_kg || 0));
+  }
+
+  if (payload.weight_label !== undefined) {
+    item.weight_label = payload.weight_label || '';
+  }
+
+  if (payload.sort_order !== undefined) {
+    item.sort_order = Number(payload.sort_order || 0);
+  }
+
+  if (Number(item.max_weight_kg || 0) > 0 && Number(item.max_weight_kg || 0) < Number(item.min_weight_kg || 0)) {
+    throw new ApiError(400, 'Maximum weight must be greater than or equal to minimum weight');
   }
 
   if (payload.active !== undefined) {

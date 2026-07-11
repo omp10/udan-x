@@ -105,13 +105,16 @@ export const adminService = {
   /**
    * Subscription Management
    */
-  getSubscriptionPlans: () => api.get('/admin/driver-subscriptions/plans/list'),
+  getSubscriptionPlans: (params = {}) => api.get('/admin/driver-subscriptions/plans/list', { params }),
   createSubscriptionPlan: (planData) => api.post('/admin/driver-subscriptions/plans/create', planData),
   getSubscriptionSettings: () => api.get('/admin/driver-subscriptions/settings'),
   updateSubscriptionSettings: (data) => api.post('/admin/driver-subscriptions/settings', data),
+  getPartnerSubscriptionAnalytics: () => api.get('/admin/partner-subscriptions/analytics'),
   getUserSubscriptionPlans: () => api.get('/admin/user-subscriptions/plans/list'),
   createUserSubscriptionPlan: (planData) => api.post('/admin/user-subscriptions/plans/create', planData),
   getUserSubscriptionsByUserId: (id) => api.get(`/admin/users/${id}/subscriptions`),
+  getDriverSubscriptionsByDriverId: (id) => api.get(`/admin/drivers/${id}/subscriptions`),
+  getOwnerSubscriptionsByOwnerId: (id) => api.get(`/admin/owners/${id}/subscriptions`),
   
   /**
    * Common / Configuration Data
@@ -135,6 +138,8 @@ export const adminService = {
   deleteServiceStore: (id) => api.delete(`/admin/service-stores/${id}`),
   getCountries: () => api.get('/countries'),
   getVehicleTypes: (transportType) => api.get(`/admin/types/vehicle-types/list${transportType ? `?transport_type=${transportType}` : ''}`),
+  getGoodsSettings: () => api.get('/admin/general-settings/goods-settings'),
+  updateGoodsSettings: (data) => api.patch('/admin/general-settings/goods-settings', { settings: data }),
   getVehicleTypeById: (id) => api.get(`/admin/types/vehicle-types/${id}`),
   getRideModules: () => api.get('/common/ride_modules'),
   getLocationVehicleTypes: (locationId, transportType) => api.get(`/types/${locationId}?transport_type=${transportType}`),

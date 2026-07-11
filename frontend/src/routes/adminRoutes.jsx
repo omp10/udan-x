@@ -137,6 +137,14 @@ import {
   AdminWithdrawalRequestOwners,
   AdminZoneManagement,
   AdminUserAppManagement,
+  AdminCommissionManagement,
+  AdminCommissionReports,
+  AdminSubscriptionPlans,
+  AdminSubscriptionAnalytics,
+  AdminHelperManagement,
+  AdminWarehouseManagement,
+  AdminGoodsSettings,
+  AdminAppBranding,
 } from './lazyPages';
 
 const AdminReportPlaceholder = ({ title }) => (
@@ -415,6 +423,25 @@ const adminRoutes = (
       <Route path="settings/addons/dispatcher" element={<AdminDispatcherAddons />} />
       <Route path="settings/addons/*" element={<AdminReportPlaceholder title="Addons Management" />} />
       <Route path="settings/cms/*" element={<AdminReportPlaceholder title="CMS Management" />} />
+
+      {/* === SOW Gap-Fill: Commission Management === */}
+      <Route path="commission" element={<AdminCommissionManagement />} />
+      <Route path="commission/reports" element={<AdminCommissionReports />} />
+
+      {/* === SOW Gap-Fill: Subscription Management === */}
+      <Route path="subscriptions/plans" element={<AdminSubscriptionPlans />} />
+      <Route path="subscriptions/analytics" element={<AdminSubscriptionAnalytics />} />
+
+      {/* === SOW Gap-Fill: Goods Transport === */}
+      <Route path="goods/categories" element={<AdminGoodsTypes />} />
+      <Route path="goods/categories/create" element={<AdminGoodsTypes mode="create" />} />
+      <Route path="goods/categories/edit/:id" element={<AdminGoodsTypes mode="edit" />} />
+      <Route path="goods/helpers" element={<AdminHelperManagement />} />
+      <Route path="goods/warehouses" element={<AdminWarehouseManagement />} />
+      <Route path="goods/settings" element={<AdminGoodsSettings />} />
+
+      {/* === SOW Gap-Fill: App Branding === */}
+      <Route path="settings/business/branding" element={<AdminAppBranding />} />
     </Route>
 
     <Route path="*" element={<Navigate to="/" />} />

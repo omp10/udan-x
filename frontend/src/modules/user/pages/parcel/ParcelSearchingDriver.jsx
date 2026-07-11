@@ -345,7 +345,16 @@ const formatParcelFareLabel = (estimatedFare, fallbackFare) => {
   return '--';
 };
 
-const isVehicleCompatibleWithGoodsType = (vehicle, goodsTypeFor = '') => {
+const isVehicleCompatibleWithGoodsType = (vehicle, goodsTypeFor = '', goodsTypeVehicleIds = []) => {
+  const allowedVehicleIds = Array.isArray(goodsTypeVehicleIds)
+    ? goodsTypeVehicleIds.map((value) => String(value || '').trim()).filter(Boolean)
+    : [];
+  const vehicleId = String(vehicle?._id || vehicle?.id || '').trim();
+
+  if (allowedVehicleIds.length && vehicleId) {
+    return allowedVehicleIds.includes(vehicleId);
+  }
+
   const allowedLabels = String(goodsTypeFor || 'both')
     .split(',')
     .map(normalizeVehicleLabel)
@@ -386,6 +395,13 @@ const ParcelSearchingDriver = () => {
   const activeRideIdRef = useRef('');
   const trackingStartedRef = useRef(false);
   const searchNonce = String(routeState.searchNonce || '');
+  const preferredVehicleIds = Array.isArray(routeState.goodsTypeVehicleIds)
+    ? routeState.goodsTypeVehicleIds
+    : Array.isArray(routeState.selectedGoodsType?.goods_type_vehicle_ids)
+      ? routeState.selectedGoodsType.goods_type_vehicle_ids
+      : Array.isArray(routeState.parcel?.goodsTypeVehicleIds)
+        ? routeState.parcel.goodsTypeVehicleIds
+        : [];
   const preferredVehicleType = String(
     routeState.goodsTypeFor ||
     routeState.selectedGoodsType?.goodsTypeFor ||
@@ -667,10 +683,10 @@ const ParcelSearchingDriver = () => {
         const vehicleTypes = vehicleCatalog?.vehicle_types || vehicleCatalog?.results || (Array.isArray(vehicleCatalog) ? vehicleCatalog : []);
         const requestedVehicles = findVehiclesByIds(vehicleTypes, routeState.selectedVehicleIds);
         const requestedVehicle = findVehicleById(vehicleTypes, routeState.selectedVehicleId);
-        const requestedVehicleTypes = requestedVehicles.filter((vehicle) => isVehicleCompatibleWithGoodsType(vehicle, preferredVehicleType));
+        const requestedVehicleTypes = requestedVehicles.filter((vehicle) => isVehicleCompatibleWithGoodsType(vehicle, preferredVehicleType, preferredVehicleIds));
         const selectedVehicleTypes = requestedVehicleTypes.length > 0
           ? requestedVehicleTypes
-          : requestedVehicle && isVehicleCompatibleWithGoodsType(requestedVehicle, preferredVehicleType)
+          : requestedVehicle && isVehicleCompatibleWithGoodsType(requestedVehicle, preferredVehicleType, preferredVehicleIds)
             ? [requestedVehicle]
             : pickParcelVehicles(vehicleTypes, preferredVehicleType);
         const selectedVehicleType = selectedVehicleTypes[0];
@@ -692,6 +708,7 @@ const ParcelSearchingDriver = () => {
           senderMobile: routeState.parcel?.senderMobile || routeState.senderMobile || '',
           receiverName: routeState.parcel?.receiverName || routeState.receiverName || '',
           receiverMobile: routeState.parcel?.receiverMobile || routeState.receiverMobile || '',
+          goodsTypeVehicleIds: preferredVehicleIds,
           goodsTypeFor: preferredVehicleType || routeState.parcel?.goodsTypeFor || 'both',
           deliveryCategory: routeState.parcel?.deliveryCategory || routeState.deliveryCategory || '',
         };

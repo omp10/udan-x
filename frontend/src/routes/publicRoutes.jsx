@@ -33,6 +33,7 @@ import {
   ParcelSearchingDriver,
   ParcelTracking,
   ParcelType,
+  ParcelVehicleSelect,
   PaymentSettings,
   Profile,
   ProfileSettings,
@@ -123,6 +124,7 @@ const publicRoutes = (
 
       <Route path="/parcel/type" element={<ParcelType />} />
       <Route path="/parcel/details" element={<SenderReceiverDetails />} />
+      <Route path="/parcel/vehicle" element={<ParcelVehicleSelect />} />
       <Route path="/parcel/contacts" element={<SenderReceiverDetails />} />
       <Route path="/parcel/searching" element={<ParcelSearchingDriver />} />
       <Route path="/parcel/tracking" element={<ParcelTracking />} />

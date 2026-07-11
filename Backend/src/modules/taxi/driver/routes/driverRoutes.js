@@ -47,6 +47,8 @@ import {
   listBusDriverBookings,
   getDriverPaymentQrStatus,
   getDriverApprovalStatus,
+  getPartnerSubscriptionPlansForCurrentDriver,
+  getMyPartnerSubscriptions,
   getDriverDocumentTemplates,
   getDriverVehicleFieldTemplates,
   getDriverEmergencyContacts,
@@ -97,6 +99,7 @@ import {
   verifyCurrentDriverGstinDocument,
   verifyCurrentDriverPanDocument,
   verifyCurrentDriverRcDocument,
+  purchaseMyPartnerSubscription,
 
   updateCurrentDriver,
   updateDriverVehicle,
@@ -309,8 +312,23 @@ driverRouter.post(
 );
 driverRouter.get(
   "/wallet",
-  authenticate(["driver"]),
+  authenticate(["driver", "owner"]),
   asyncHandler(getMyWallet),
+);
+driverRouter.get(
+  "/subscriptions/plans",
+  authenticate(["driver", "owner"]),
+  asyncHandler(getPartnerSubscriptionPlansForCurrentDriver),
+);
+driverRouter.get(
+  "/subscriptions/me",
+  authenticate(["driver", "owner"]),
+  asyncHandler(getMyPartnerSubscriptions),
+);
+driverRouter.post(
+  "/subscriptions/purchase",
+  authenticate(["driver", "owner"]),
+  asyncHandler(purchaseMyPartnerSubscription),
 );
 driverRouter.get(
   "/incentives",

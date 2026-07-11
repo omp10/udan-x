@@ -17,6 +17,7 @@ import {
   DriverHome,
   DriverIncentives,
   DriverProfile,
+  DriverSubscriptions,
   DriverSupportChat,
   DriverWallet,
   EditProfile,
@@ -109,6 +110,7 @@ const driverRoutes = (
     <Route path="active-trip" element={<ActiveTrip />} />
     <Route path="chat" element={<Chat />} />
     <Route path="wallet" element={<DriverWallet />} />
+    <Route path="subscriptions" element={<DriverSubscriptions />} />
     <Route path="profile" element={<DriverProfile />} />
     <Route path="profile/bank-details" element={<DriverBankDetailsPage />} />
     <Route path="service-center" element={<ServiceCenterDashboard />} />

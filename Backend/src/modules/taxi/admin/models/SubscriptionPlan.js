@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const subscriptionPlanSchema = new mongoose.Schema({
   audience: {
     type: String,
-    enum: ['driver', 'user'],
+    enum: ['driver', 'user', 'owner'],
     default: 'driver',
     index: true,
   },
@@ -22,6 +22,61 @@ const subscriptionPlanSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: 0,
+  },
+  billing_cycle: {
+    type: String,
+    enum: ['monthly', 'quarterly', 'yearly', 'custom'],
+    default: 'monthly',
+  },
+  coverage_scope: {
+    type: String,
+    enum: ['individual', 'vehicle', 'fleet'],
+    default: 'individual',
+  },
+  recurring_enabled: {
+    type: Boolean,
+    default: false,
+  },
+  auto_renew_default: {
+    type: Boolean,
+    default: false,
+  },
+  renewal_reminder_days: {
+    type: Number,
+    default: 5,
+    min: 0,
+  },
+  commission_discount_percent: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100,
+  },
+  priority_booking: {
+    type: Boolean,
+    default: false,
+  },
+  featured_listing: {
+    type: Boolean,
+    default: false,
+  },
+  premium_support: {
+    type: Boolean,
+    default: false,
+  },
+  booking_limit: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  max_vehicles_covered: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
   },
   how_it_works: String,
   active: { type: Boolean, default: true }

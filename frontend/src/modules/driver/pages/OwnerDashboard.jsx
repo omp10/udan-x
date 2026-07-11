@@ -126,6 +126,7 @@ const OwnerDashboard = () => {
   const fleet = dashboard?.fleet || {};
   const bookings = dashboard?.bookings || {};
   const earnings = dashboard?.earnings || {};
+  const subscriptionSummary = dashboard?.subscriptionSummary || {};
   const serviceLocation = dashboard?.serviceLocation || null;
   const recentDrivers = dashboard?.recentDrivers || [];
   const recentVehicles = dashboard?.recentVehicles || [];
@@ -218,6 +219,35 @@ const OwnerDashboard = () => {
             value={money(earnings.grossRevenue)}
             sub={`${money(earnings.ownerEarnings)} net driver earnings`}
           />
+        </section>
+
+        <section className="mt-5 rounded-[30px] bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Subscription</p>
+              <h2 className="mt-1 text-[20px] font-black text-slate-950">Fleet subscription status</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/taxi/owner/subscriptions')}
+              className="rounded-2xl bg-slate-900 px-3 py-2 text-[11px] font-black text-white"
+            >
+              Open Plans
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-slate-50 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Plans</p>
+              <p className="mt-2 text-[18px] font-black text-slate-900">{subscriptionSummary.activeCount || 0}</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-500">{subscriptionSummary.autoRenewCount || 0} auto renew</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Expires Soon</p>
+              <p className="mt-2 text-[18px] font-black text-slate-900">{subscriptionSummary.expiresSoonCount || 0}</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-500">{subscriptionSummary.premiumSupportCount || 0} premium support</p>
+            </div>
+          </div>
         </section>
 
         {busEnabled ? (

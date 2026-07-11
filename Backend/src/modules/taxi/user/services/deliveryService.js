@@ -40,6 +40,15 @@ const getVehicleTokens = (vehicle = {}) =>
     .filter(Boolean);
 
 const goodsTypeAllowsVehicle = (goodsType, vehicle) => {
+  const allowedVehicleIds = Array.isArray(goodsType?.goods_type_vehicle_ids)
+    ? goodsType.goods_type_vehicle_ids.map((value) => String(value || '')).filter(Boolean)
+    : [];
+  const vehicleId = String(vehicle?._id || vehicle?.id || '');
+
+  if (allowedVehicleIds.length && vehicleId) {
+    return allowedVehicleIds.includes(vehicleId);
+  }
+
   const allowedLabels = String(goodsType?.goods_types_for || goodsType?.goods_type_for || 'both')
     .split(',')
     .map(normalizeVehicleLabel)
@@ -65,9 +74,9 @@ const ensureDeliveryVehicleAllowed = async ({ vehicleTypeId, parcel }) => {
       goods_type_name: { $regex: `^${category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
       active: 1,
     })
-      .select('goods_type_name goods_types_for goods_type_for')
+      .select('goods_type_name goods_types_for goods_type_for goods_type_vehicle_ids')
       .lean(),
-    Vehicle.findById(vehicleTypeId).select('name vehicle_type icon_types').lean(),
+    Vehicle.findById(vehicleTypeId).select('_id name vehicle_type icon_types').lean(),
   ]);
 
   if (!goodsType || !vehicle) {

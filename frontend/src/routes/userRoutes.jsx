@@ -29,6 +29,7 @@ import {
   ParcelSearchingDriver,
   ParcelTracking,
   ParcelType,
+  ParcelVehicleSelect,
   PaymentSettings,
   Profile,
   ProfileSettings,
@@ -90,6 +91,7 @@ const userRoutes = (
         <Route path="/taxi/user/referral" element={<UserReferral />} />
         <Route path="/taxi/user/promo" element={<PromoCodes />} />
         <Route path="/taxi/user/notifications" element={<UserNotifications />} />
+        <Route path="/taxi/user/subscriptions" element={<UserSubscriptions />} />
       </Route>
 
       <Route path="/taxi/user/ride/select-category" element={<SelectCategory />} />
@@ -103,6 +105,7 @@ const userRoutes = (
 
       <Route path="/taxi/user/parcel/type" element={<ParcelType />} />
       <Route path="/taxi/user/parcel/details" element={<SenderReceiverDetails />} />
+      <Route path="/taxi/user/parcel/vehicle" element={<ParcelVehicleSelect />} />
       <Route path="/taxi/user/parcel/contacts" element={<SenderReceiverDetails />} />
       <Route path="/taxi/user/parcel/searching" element={<ParcelSearchingDriver />} />
       <Route path="/taxi/user/parcel/tracking" element={<ParcelTracking />} />

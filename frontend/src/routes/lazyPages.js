@@ -15,6 +15,7 @@ export const Support = lazy(() => import('../modules/user/pages/ride/Support'));
 export const RideDetail = lazy(() => import('../modules/user/pages/ride/RideDetail'));
 export const ParcelType = lazy(() => import('../modules/user/pages/parcel/ParcelType'));
 export const SenderReceiverDetails = lazy(() => import('../modules/user/pages/parcel/SenderReceiverDetails'));
+export const ParcelVehicleSelect = lazy(() => import('../modules/user/pages/parcel/ParcelVehicleSelect'));
 export const Activity = lazy(() => import('../modules/user/pages/Activity'));
 export const Profile = lazy(() => import('../modules/user/pages/Profile'));
 export const Wallet = lazy(() => import('../modules/user/pages/Wallet'));
@@ -97,6 +98,7 @@ export const OwnerPoolingVehicleForm = lazy(() => import('../modules/driver/page
 export const ActiveTrip = lazy(() => import('../modules/driver/pages/ActiveTrip'));
 export const DriverWallet = lazy(() => import('../modules/driver/pages/DriverWallet'));
 export const DriverProfile = lazy(() => import('../modules/driver/pages/DriverProfile'));
+export const DriverSubscriptions = lazy(() => import('../modules/driver/pages/Subscriptions'));
 export const DriverBankDetailsPage = lazy(() => import('../modules/driver/pages/DriverBankDetailsPage'));
 export const ServiceCenterDashboard = lazy(() => import('../modules/driver/pages/ServiceCenterDashboard'));
 export const ServiceCenterVehicleDetails = lazy(() => import('../modules/driver/pages/ServiceCenterVehicleDetails'));
@@ -263,3 +265,13 @@ export const AdminAdmins = lazy(() => import('../modules/admin/pages/management/
 export const AdminAdminCreate = lazy(() => import('../modules/admin/pages/management/AdminCreate'));
 export const AdminUserAppManagement = lazy(() => import('../modules/admin/pages/settings/AdminUserAppManagement'));
 export const UserAppLayout = lazy(() => import('../modules/user/components/UserAppLayout'));
+
+// === SOW Gap-Fill: New Admin Pages ===
+export const AdminCommissionManagement = lazy(() => import('../modules/admin/pages/commission/CommissionManagement'));
+export const AdminCommissionReports = lazy(() => import('../modules/admin/pages/commission/CommissionReports'));
+export const AdminSubscriptionPlans = lazy(() => import('../modules/admin/pages/subscriptions/SubscriptionPlans'));
+export const AdminSubscriptionAnalytics = lazy(() => import('../modules/admin/pages/subscriptions/SubscriptionAnalytics'));
+export const AdminHelperManagement = lazy(() => import('../modules/admin/pages/goods/HelperManagement'));
+export const AdminWarehouseManagement = lazy(() => import('../modules/admin/pages/goods/WarehouseManagement'));
+export const AdminGoodsSettings = lazy(() => import('../modules/admin/pages/goods/GoodsSettings'));
+export const AdminAppBranding = lazy(() => import('../modules/admin/pages/settings/AppBranding'));

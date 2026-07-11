@@ -16,12 +16,13 @@ import {
   Plus,
   Save
 } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { adminService } from '../../services/adminService';
 import toast from 'react-hot-toast';
 
 const DriverSubscriptionCreate = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [transportTypes, setTransportTypes] = useState([
     { transport_type: 'taxi', label: 'Taxi' },
     { transport_type: 'delivery', label: 'Delivery' },
@@ -29,12 +30,23 @@ const DriverSubscriptionCreate = () => {
   ]);
   const [vehicleTypes, setVehicleTypes] = useState([]);
   const [formData, setFormData] = useState({
+    audience: location.state?.audience || 'driver',
     name: '',
     description: '',
     amount: '',
     transport_type: '',
     vehicle_type_id: '',
     duration: '',
+    billing_cycle: 'monthly',
+    coverage_scope: location.state?.audience === 'owner' ? 'fleet' : 'individual',
+    recurring_enabled: true,
+    auto_renew_default: false,
+    commission_discount_percent: '',
+    priority_booking: true,
+    featured_listing: false,
+    premium_support: true,
+    booking_limit: '',
+    max_vehicles_covered: '',
     how_it_works: '',
   });
   const [saving, setSaving] = useState(false);
@@ -117,6 +129,22 @@ const DriverSubscriptionCreate = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="col-span-2">
+                <label className={labelClass}>Audience *</label>
+                <select
+                  value={formData.audience}
+                  onChange={(e) => setFormData((current) => ({
+                    ...current,
+                    audience: e.target.value,
+                    coverage_scope: e.target.value === 'owner' ? 'fleet' : 'individual',
+                  }))}
+                  className={inputClass}
+                >
+                  <option value="driver">Driver plan</option>
+                  <option value="owner">Fleet owner plan</option>
+                </select>
+              </div>
+
+              <div className="col-span-2">
                 <label className={labelClass}>
                   <Info size={12} className="inline mr-1 text-gray-400" />
                   How It Works *
@@ -183,6 +211,33 @@ const DriverSubscriptionCreate = () => {
               </div>
 
               <div>
+                <label className={labelClass}>Billing Cycle</label>
+                <select
+                  value={formData.billing_cycle}
+                  onChange={(e) => setFormData({...formData, billing_cycle: e.target.value})}
+                  className={inputClass}
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClass}>Coverage Scope</label>
+                <select
+                  value={formData.coverage_scope}
+                  onChange={(e) => setFormData({...formData, coverage_scope: e.target.value})}
+                  className={inputClass}
+                >
+                  <option value="individual">Individual</option>
+                  <option value="vehicle">Vehicle</option>
+                  <option value="fleet">Fleet</option>
+                </select>
+              </div>
+
+              <div>
                 <label className={labelClass}>
                   <Clock size={12} className="inline mr-1 text-gray-400" />
                   Duration (Days) *
@@ -224,6 +279,74 @@ const DriverSubscriptionCreate = () => {
                   className={`${inputClass} min-h-[100px] resize-none`}
                 />
               </div>
+
+              <div>
+                <label className={labelClass}>Commission Discount %</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.commission_discount_percent}
+                  onChange={(e) => setFormData({...formData, commission_discount_percent: e.target.value})}
+                  placeholder="0"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Booking Limit</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.booking_limit}
+                  onChange={(e) => setFormData({...formData, booking_limit: e.target.value})}
+                  placeholder="0 for unlimited"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Vehicles Covered</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.max_vehicles_covered}
+                  onChange={(e) => setFormData({...formData, max_vehicles_covered: e.target.value})}
+                  placeholder="0 for not limited"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="col-span-2 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <ToggleBox
+                  label="Recurring"
+                  checked={Boolean(formData.recurring_enabled)}
+                  onChange={() => setFormData({...formData, recurring_enabled: !formData.recurring_enabled})}
+                />
+                <ToggleBox
+                  label="Auto Renew Default"
+                  checked={Boolean(formData.auto_renew_default)}
+                  onChange={() => setFormData({...formData, auto_renew_default: !formData.auto_renew_default})}
+                />
+                <ToggleBox
+                  label="Priority Booking"
+                  checked={Boolean(formData.priority_booking)}
+                  onChange={() => setFormData({...formData, priority_booking: !formData.priority_booking})}
+                />
+                <ToggleBox
+                  label="Featured Listing"
+                  checked={Boolean(formData.featured_listing)}
+                  onChange={() => setFormData({...formData, featured_listing: !formData.featured_listing})}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <ToggleBox
+                  label="Premium Support"
+                  checked={Boolean(formData.premium_support)}
+                  onChange={() => setFormData({...formData, premium_support: !formData.premium_support})}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -255,5 +378,15 @@ const DriverSubscriptionCreate = () => {
     </div>
   );
 };
+
+const ToggleBox = ({ label, checked, onChange }) => (
+  <button
+    type="button"
+    onClick={onChange}
+    className={`rounded-lg border px-4 py-3 text-left text-sm font-semibold transition-colors ${checked ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600'}`}
+  >
+    {label}
+  </button>
+);
 
 export default DriverSubscriptionCreate;

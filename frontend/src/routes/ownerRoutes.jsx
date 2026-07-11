@@ -10,6 +10,7 @@ import {
   DriverDocuments,
   DriverHelpSupportOptions,
   DriverProfile,
+  DriverSubscriptions,
   DriverSupportChat,
   DriverWallet,
   EditProfile,
@@ -66,6 +67,7 @@ const ownerRoutes = (
     <Route path="pooling-vehicles" element={<OwnerPoolingVehicleForm />} />
     <Route path="pooling-vehicles/create" element={<OwnerPoolingVehicleForm />} />
     <Route path="profile" element={<DriverProfile />} />
+    <Route path="subscriptions" element={<DriverSubscriptions />} />
     <Route path="profile/bank-details" element={<DriverBankDetailsPage />} />
     <Route path="wallet" element={<DriverWallet />} />
     <Route path="history" element={<RideRequests />} />

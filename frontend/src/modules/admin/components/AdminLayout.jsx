@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Crown,
   FileText,
   Globe,
   Home,
@@ -854,7 +855,6 @@ const AdminLayout = () => {
               { label: 'Zone', path: '/admin/pricing/zone', permission: 'zones.view' },
               { label: 'Airport', path: '/admin/pricing/airport', permission: 'airports.view' },
               { label: 'Set Price', path: '/admin/pricing/set-price', permission: 'set_prices.view' },
-              //{ label: 'Goods Types', path: '/admin/pricing/goods-types', permission: 'goods_types.view' },
             ],
           },
           {
@@ -895,6 +895,32 @@ const AdminLayout = () => {
             ],
           },
           {
+            icon: Package,
+            label: 'Goods Transport',
+            subItems: [
+              { label: 'Goods Categories', path: '/admin/goods/categories', permission: 'goods_types.view' },
+              { label: 'Helper Management', path: '/admin/goods/helpers', permission: 'deliveries.view' },
+              { label: 'Warehouse Management', path: '/admin/goods/warehouses', permission: 'deliveries.view' },
+              { label: 'Goods Settings', path: '/admin/goods/settings', permission: 'settings.view' },
+            ],
+          },
+          {
+            icon: IndianRupee,
+            label: 'Commission Management',
+            subItems: [
+              { label: 'Commission Settings', path: '/admin/commission', permission: 'settings.view' },
+              { label: 'Commission Reports', path: '/admin/commission/reports', permission: 'reports.view' },
+            ],
+          },
+          {
+            icon: Crown,
+            label: 'Subscription Management',
+            subItems: [
+              { label: 'Subscription Plans', path: '/admin/subscriptions/plans', permission: 'settings.view' },
+              { label: 'Analytics', path: '/admin/subscriptions/analytics', permission: 'reports.view' },
+            ],
+          },
+          {
             icon: MapPin,
             label: 'Geofencing',
             subItems: [
@@ -929,7 +955,7 @@ const AdminLayout = () => {
               { label: 'Pending Drivers', path: '/admin/drivers/pending', permission: 'drivers.view' },
               { label: 'Approved Drivers', path: '/admin/drivers', permission: 'drivers.view' },
               { label: 'Active Drivers', path: '/admin/drivers/active', permission: 'drivers.view' },
-              //cd front{ label: 'Subscription', path: '/admin/drivers/subscription', permission: 'drivers.view' },
+              { label: 'Subscription', path: '/admin/drivers/subscription', permission: 'drivers.view' },
               { label: 'Drivers Ratings', path: '/admin/drivers/ratings', permission: 'drivers.view' },
               {
                 label: 'Driver Wallet',
@@ -940,9 +966,9 @@ const AdminLayout = () => {
               },
               { label: 'Delete Request Drivers', path: '/admin/drivers/delete-requests', permission: 'drivers.view' },
               { label: 'Driver Needed Documents', path: '/admin/drivers/documents', permission: 'drivers.view' },
-              //  { label: 'Driver Bulk Upload', path: '/admin/drivers/bulk-upload', permission: 'drivers.view' },
+              { label: 'Driver Bulk Upload', path: '/admin/drivers/bulk-upload', permission: 'drivers.view' },
               { label: 'Payment Methods', path: '/admin/drivers/payment-methods', permission: 'wallet.view' },
-              { label: 'Driver Wallet Managment', path: '/admin/settings/app/wallet', permission: 'settings.view' },
+              { label: 'Driver Wallet Management', path: '/admin/settings/app/wallet', permission: 'settings.view' },
             ],
           },
           {
@@ -1012,6 +1038,7 @@ const AdminLayout = () => {
             subItems: [
               { label: 'General Settings', path: '/admin/settings/business/general', permission: 'settings.view' },
               { label: 'Customization Settings', path: '/admin/settings/business/customization', permission: 'settings.view' },
+              { label: 'App Branding & Logo', path: '/admin/settings/business/branding', permission: 'settings.view' },
               { label: 'Transport Ride Settings', path: '/admin/settings/business/transport-ride', permission: 'settings.view' },
               { label: 'Bid Ride Settings', path: '/admin/settings/business/bid-ride', permission: 'settings.view' },
             ],
@@ -1048,11 +1075,11 @@ const AdminLayout = () => {
             subItems: [
               { label: 'Payment Gateway Settings', path: '/admin/settings/third-party/payment', permission: 'settings.view' },
               { label: 'Recharge API Setup', path: '/admin/settings/third-party/recharge-api', permission: 'settings.view' },
-              // { label: 'SMS Gateway Settings', path: '/admin/settings/third-party/sms', permission: 'settings.view' },
-              // { label: 'Firebase Settings', path: '/admin/settings/third-party/firebase', permission: 'settings.view' },
-              // { label: 'Map and Map APIs Settings', path: '/admin/settings/third-party/map-apis', permission: 'settings.view' },
-              // { label: 'Mail Configuration', path: '/admin/settings/third-party/mail', permission: 'settings.view' },
-              // { label: 'Notification Channel', path: '/admin/settings/third-party/notification-channel' },
+              { label: 'SMS Gateway Settings', path: '/admin/settings/third-party/sms', permission: 'settings.view' },
+              { label: 'Firebase Settings', path: '/admin/settings/third-party/firebase', permission: 'settings.view' },
+              { label: 'Map and Map APIs Settings', path: '/admin/settings/third-party/map-apis', permission: 'settings.view' },
+              { label: 'Mail Configuration', path: '/admin/settings/third-party/mail', permission: 'settings.view' },
+              { label: 'Notification Channel', path: '/admin/settings/third-party/notification-channel', permission: 'settings.view' },
             ],
           },
           // {

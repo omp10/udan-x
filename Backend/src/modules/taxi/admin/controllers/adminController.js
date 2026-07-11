@@ -566,8 +566,8 @@ export const adjustDriverWallet = asyncHandler(async (req, res) =>
   ok(res, await adminService.adjustDriverWallet(req.params.id, req.body)),
 );
 
-export const getSubscriptionPlans = asyncHandler(async (_req, res) =>
-  ok(res, { results: await adminService.listSubscriptionPlans() }),
+export const getSubscriptionPlans = asyncHandler(async (req, res) =>
+  ok(res, { results: await adminService.listSubscriptionPlans({ audience: req.query?.audience || 'driver' }) }),
 );
 export const createSubscriptionPlan = asyncHandler(async (req, res) =>
   ok(res, await adminService.createSubscriptionPlan(req.body)),
@@ -581,12 +581,21 @@ export const createCustomerSubscriptionPlan = asyncHandler(async (req, res) =>
 export const getUserSubscriptions = asyncHandler(async (req, res) =>
   ok(res, await adminService.listUserSubscriptionsByUserId(req.params.id)),
 );
+export const getDriverSubscriptions = asyncHandler(async (req, res) =>
+  ok(res, await adminService.listDriverSubscriptionsByDriverId(req.params.id)),
+);
+export const getOwnerSubscriptions = asyncHandler(async (req, res) =>
+  ok(res, await adminService.listOwnerSubscriptionsByOwnerId(req.params.id)),
+);
 
 export const getSubscriptionSettings = asyncHandler(async (_req, res) =>
   ok(res, await adminService.getSubscriptionSettings()),
 );
 export const updateSubscriptionSettings = asyncHandler(async (req, res) =>
   ok(res, await adminService.updateSubscriptionSettings(req.body)),
+);
+export const getPartnerSubscriptionsAnalytics = asyncHandler(async (_req, res) =>
+  ok(res, await adminService.getPartnerSubscriptionsAnalytics()),
 );
 
 export const getReferralSettings = asyncHandler(async (req, res) =>
@@ -683,8 +692,8 @@ export const getVehicleTypeCatalog = asyncHandler(async (_req, res) =>
 export const getVehicleTypeById = asyncHandler(async (req, res) =>
   ok(res, await adminService.getVehicleTypeById(req.params.id)),
 );
-export const getPublicVehicleTypeCatalog = asyncHandler(async (_req, res) =>
-  ok(res, await adminService.listPublicVehicleCatalog()),
+export const getPublicVehicleTypeCatalog = asyncHandler(async (req, res) =>
+  ok(res, await adminService.listPublicVehicleCatalog(req.query)),
 );
 export const getPublicRentalVehicleCatalog = asyncHandler(async (_req, res) =>
   ok(res, { results: await adminService.listPublicRentalVehicleCatalog() }),

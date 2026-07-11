@@ -578,6 +578,9 @@ const VehicleType = ({ mode: propMode }) => {
       if (showsDeliveryCategorySelector && !formData.delivery_category) {
         throw new Error('Choose a delivery category for this delivery-enabled vehicle type.');
       }
+      if (showsDeliveryCategorySelector && Number(formData.capacity || 0) <= 0) {
+        throw new Error('Enter this delivery vehicle\'s maximum supported load in kilograms.');
+      }
 
       const payload = {
         name: formData.name.trim(),
@@ -955,6 +958,36 @@ const VehicleType = ({ mode: propMode }) => {
               <p className="mt-2 text-xs text-slate-500">
                 This decides which delivery card this vehicle type appears under in the user parcel flow.
               </p>
+
+              <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Maximum Load Capacity (KG) *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.capacity || ''}
+                    onChange={(e) => updateForm('capacity', e.target.value)}
+                    className={inputClass}
+                    placeholder="Enter maximum weight in kilograms (e.g. 500)"
+                  />
+                  <p className="mt-1.5 text-xs text-slate-500 font-medium">
+                    Used to match compatible vehicles based on the customer's parcel weight.
+                  </p>
+                </div>
+                <div>
+                  <label className={labelClass}>Maximum Dimensions / Size (e.g., L x W x H in feet)</label>
+                  <input
+                    type="text"
+                    value={formData.size || ''}
+                    onChange={(e) => updateForm('size', e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g., 3 x 2 x 2 ft"
+                  />
+                  <p className="mt-1.5 text-xs text-slate-500 font-medium">
+                    Displayed to customers during vehicle selection.
+                  </p>
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -1191,7 +1224,7 @@ const VehicleType = ({ mode: propMode }) => {
             </div>
 
             <div>
-              <label className={labelClass}>Maximum Weight / Capacity *</label>
+              <label className={labelClass}>{showsDeliveryCategorySelector ? 'Maximum Supported Load (KG) *' : 'Maximum Weight / Capacity *'}</label>
               <input
                 type="number"
                 value={formData.capacity}

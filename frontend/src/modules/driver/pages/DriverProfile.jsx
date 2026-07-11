@@ -21,6 +21,7 @@ import {
     Info,
     Gift,
     Shield,
+    Crown,
     BadgePercent,
     Check,
     Mail,
@@ -31,7 +32,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DriverBottomNav from '../../shared/components/DriverBottomNav';
-import { clearDriverAuthState, getCurrentDriver } from '../services/registrationService';
+import { clearDriverAuthState, getCurrentDriver, updateDriverProfile } from '../services/registrationService';
 
 const unwrapDriver = (response) => response?.data?.data || response?.data || response || null;
 const ROUTE_BOOKING_STORAGE_KEY = 'driver_route_booking_preferences';
@@ -315,6 +316,7 @@ Processing Time: Refunds are typically credited back to the original payment met
             items: [
                 { id: 'personal', label: 'Personal Information', sub: driverPhone, icon: <User size={20} />, path: `${routePrefix}/edit-profile` },
                 { id: 'wallet', label: 'Wallet', icon: <Wallet size={20} />, path: `${routePrefix}/wallet` },
+                { id: 'subscriptions', label: 'Subscriptions', sub: isOwner ? 'Fleet plans & premium benefits' : 'Plans & premium benefits', icon: <Crown size={20} />, path: `${routePrefix}/subscriptions` },
                 { id: 'bankDetails', label: 'Bank Details', sub: bankDetailsSubtitle, icon: <Landmark size={20} />, action: openBankDetails },
                 ...(!isOwner ? [
                     { id: 'vehicle', label: 'My Vehicle', icon: <Car size={20} />, path: `${routePrefix}/vehicle-fleet` },

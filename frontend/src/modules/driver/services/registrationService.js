@@ -472,6 +472,15 @@ export const getPoolingDriverBookings = () =>
 export const getDriverRideHistory = (params = {}) =>
   api.get("/rides", withDriverAuth({ params }));
 
+export const getMyPartnerSubscriptionPlans = () =>
+  api.get("/drivers/subscriptions/plans", withDriverAuth());
+
+export const getMyPartnerSubscriptions = () =>
+  api.get("/drivers/subscriptions/me", withDriverAuth());
+
+export const purchaseMyPartnerSubscription = (payload) =>
+  api.post("/drivers/subscriptions/purchase", payload, withDriverAuth());
+
 export const updateDriverProfile = (payload) =>
   api.patch("/drivers/me", payload, withDriverAuth());
 export const verifyDriverBankDetails = (mode = "penny_less") =>

@@ -296,6 +296,90 @@ const HelperFormModal = ({ form, setForm, onClose, onSave, saving, editId }) => 
   </div>
 );
 
+const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
+const jobDate = (job) => {
+  const raw = job.completed_at || job.created_at;
+  return raw ? new Date(raw).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—';
+};
+
+// Earnings accrue in the ride-settlement path, so a job only counts once the
+// delivery completes — "pending" rows are booked labour not yet settled.
+const EarningsRow = ({ row }) => {
+  const [open, setOpen] = useState(false);
+  const jobs = row.recent_jobs || [];
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center gap-4 px-5 py-4 text-left"
+      >
+        <div className="h-9 w-9 shrink-0 rounded-xl bg-yellow-100 flex items-center justify-center">
+          <IndianRupee size={16} className="text-yellow-600" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-black text-slate-900">{row.name}</p>
+          <p className="text-xs text-slate-400">
+            {row.phone || '—'} • <span className="capitalize">{row.helper_type || 'both'}</span>
+            {row.available ? '' : ' • unavailable'}
+          </p>
+        </div>
+        <div className="hidden sm:block text-right">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Jobs</p>
+          <p className="text-sm font-black text-slate-700">{row.total_jobs}</p>
+        </div>
+        {row.pending_jobs > 0 && (
+          <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">
+            <AlertCircle size={11} /> {row.pending_jobs} pending
+          </span>
+        )}
+        <div className="text-right">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Earned</p>
+          <p className="text-base font-black text-emerald-700">{money(row.total_earnings)}</p>
+        </div>
+        <ChevronRight
+          size={16}
+          className={`shrink-0 text-slate-300 transition-transform ${open ? 'rotate-90' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100 px-5 py-4">
+          {jobs.length === 0 ? (
+            <p className="text-xs font-bold text-slate-400">No jobs assigned yet.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Jobs</p>
+              {jobs.map((job) => (
+                <div
+                  key={job.ride_id}
+                  className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-xs"
+                >
+                  <span className="font-mono text-[11px] text-slate-400">#{String(job.ride_id).slice(-6)}</span>
+                  <span className="min-w-0 flex-1 truncate font-semibold text-slate-600">
+                    {job.pickup_address || '—'} → {job.drop_address || '—'}
+                  </span>
+                  <span className="shrink-0 capitalize text-slate-400">{job.role}</span>
+                  <span className="shrink-0 text-slate-400">{jobDate(job)}</span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${
+                      job.settled ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {job.settled ? 'paid' : job.status || 'pending'}
+                  </span>
+                  <span className="shrink-0 font-black text-slate-800">{money(job.charge)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const HelperManagement = () => {
   const [helpers, setHelpers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -305,6 +389,25 @@ const HelperManagement = () => {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [filterAvailable, setFilterAvailable] = useState('all');
+  const [view, setView] = useState('roster');
+  const [earnings, setEarnings] = useState({ results: [], totals: null });
+  const [loadingEarnings, setLoadingEarnings] = useState(false);
+
+  const loadEarnings = async () => {
+    try {
+      setLoadingEarnings(true);
+      const res = await adminService.getHelperEarnings();
+      const payload = res?.data?.data || res?.data || {};
+      setEarnings({
+        results: Array.isArray(payload.results) ? payload.results : [],
+        totals: payload.totals || null,
+      });
+    } catch {
+      toast.error('Failed to load helper earnings');
+    } finally {
+      setLoadingEarnings(false);
+    }
+  };
 
   const loadHelpers = async () => {
     try {
@@ -417,23 +520,85 @@ const HelperManagement = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {[
+              { id: 'roster', label: 'Roster' },
+              { id: 'earnings', label: 'Earnings' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setView(tab.id);
+                  if (tab.id === 'earnings') loadEarnings();
+                }}
+                className={`rounded-lg px-4 py-2 text-sm font-black transition-all ${
+                  view === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
-            onClick={loadHelpers}
+            onClick={view === 'earnings' ? loadEarnings : loadHelpers}
             className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-500 shadow-sm hover:bg-slate-50 transition-colors"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={loading || loadingEarnings ? 'animate-spin' : ''} />
           </button>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-black text-black shadow-md hover:bg-yellow-500"
-          >
-            <Plus size={16} /> Add Helper
-          </button>
+          {view === 'roster' && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-black text-black shadow-md hover:bg-yellow-500"
+            >
+              <Plus size={16} /> Add Helper
+            </button>
+          )}
         </div>
       </div>
 
+      {view === 'earnings' ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[
+              { label: 'Total Paid Out', value: money(earnings.totals?.earnings), tone: 'text-emerald-700' },
+              { label: 'Jobs Completed', value: earnings.totals?.jobs ?? 0, tone: 'text-slate-900' },
+              { label: 'Jobs Pending', value: earnings.totals?.pending_jobs ?? 0, tone: 'text-amber-600' },
+              { label: 'Helpers Available', value: `${earnings.totals?.available ?? 0}/${earnings.totals?.helpers ?? 0}`, tone: 'text-slate-900' },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm text-center">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className={`mt-1.5 text-2xl font-black ${stat.tone}`}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs font-semibold text-slate-400">
+            Earnings are credited per helper when the delivery completes and the ride is settled.
+          </p>
+
+          {loadingEarnings ? (
+            <div className="flex min-h-[30vh] items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
+            </div>
+          ) : earnings.results.length === 0 ? (
+            <div className="flex min-h-[30vh] flex-col items-center justify-center text-center">
+              <IndianRupee size={44} className="mb-4 text-slate-200" />
+              <h3 className="text-lg font-black text-slate-700">No Helper Earnings Yet</h3>
+              <p className="mt-1 text-sm text-slate-400">Totals appear here once helper bookings are delivered</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {earnings.results.map((row) => (
+                <EarningsRow key={row.id || row._id} row={row} />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm text-center">
@@ -513,6 +678,8 @@ const HelperManagement = () => {
             ))}
           </AnimatePresence>
         </div>
+      )}
+      </>
       )}
 
       <AnimatePresence>

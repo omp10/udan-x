@@ -87,7 +87,7 @@ const BottomNavbar = () => {
                         damping: 32,
                         mass: 1
                       }}
-                      className="absolute -inset-y-2 -inset-x-4 bg-[#FFC400] rounded-[20px] shadow-[0_8px_20px_rgba(255,196,0,0.35)]"
+                      className="absolute -inset-y-2 -inset-x-4 bg-[#E85D04] rounded-[20px] shadow-[0_8px_20px_rgba(255,196,0,0.35)]"
                     />
                   )}
                 </AnimatePresence>

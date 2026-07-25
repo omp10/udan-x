@@ -3,6 +3,7 @@ import { ApiError } from '../../../../utils/ApiError.js';
 import { SubscriptionPlan } from '../../admin/models/SubscriptionPlan.js';
 import { UserWallet } from '../models/UserWallet.js';
 import { UserSubscription } from '../models/UserSubscription.js';
+import { normalizeTier } from '../../services/partnerSubscriptionService.js';
 
 const roundMoney = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -75,6 +76,7 @@ export const serializeSubscriptionPlan = (plan = {}) => ({
       }
     : null,
   benefit_type: normalizeBenefitType(plan.benefit_type),
+  tier: normalizeTier(plan.tier),
   ride_limit: Math.max(0, Number(plan.ride_limit || 0)),
   how_it_works: String(plan.how_it_works || '').trim(),
   active: plan.active !== false,

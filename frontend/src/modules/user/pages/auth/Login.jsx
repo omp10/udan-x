@@ -143,7 +143,7 @@ const Login = () => {
                 className="h-6 w-6 object-contain rounded-full bg-slate-950 p-0.5"
               />
             ) : (
-              <div className="h-6 w-6 bg-[#FFB300] rounded-full flex items-center justify-center shadow-lg">
+              <div className="h-6 w-6 bg-[#E85D04] rounded-full flex items-center justify-center shadow-lg">
                 <span className="text-[11px] font-black italic text-slate-950">{appName[0]?.toUpperCase() || 'R'}</span>
               </div>
             )}
@@ -153,7 +153,7 @@ const Login = () => {
 
         {/* Floating Title Over Image */}
         <div className="login-hero-text space-y-1.5 pointer-events-none">
-          <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest login-accent-text bg-[#FFB300]/10 px-2.5 py-0.5 rounded-full">
+          <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest login-accent-text bg-[#E85D04]/10 px-2.5 py-0.5 rounded-full">
             Premium Mobility
           </span>
           <h1 className="text-[28px] font-black leading-[1.15] tracking-tight uppercase text-white">
@@ -229,7 +229,7 @@ const Login = () => {
                 <div className="space-y-4">
                   <div className={`flex items-center gap-4 p-5 rounded-2xl transition-all border-2 ${error
                       ? 'border-rose-500/20 bg-rose-500/5'
-                      : 'border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#FFB300] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 focus-within:shadow-xl'
+                      : 'border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#E85D04] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 focus-within:shadow-xl'
                     }`}>
                     <div className="flex items-center gap-3 pr-4 border-r border-zinc-200 dark:border-white/10">
                       <img src="https://flagcdn.com/w40/in.png" alt="India" className="w-5 h-3.5 object-cover rounded-sm" />

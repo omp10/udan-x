@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useUserTheme } from '../../../shared/context/UserThemeContext';
-
 import ActivityHeader from '../components/activity/ActivityHeader';
 import ActivityTabs from '../components/activity/ActivityTabs';
 import ActivityCard from '../components/activity/ActivityCard';
@@ -619,13 +617,8 @@ const Activity = () => {
   };
   const helperText = useMemo(() => getHelperText(activeTab), [activeTab]);
 
-  const { theme } = useUserTheme();
-  const isDark = theme === 'dark';
-
   return (
-    <div className={`mx-auto flex min-h-screen max-w-lg flex-col font-sans pb-28 transition-colors duration-300 ${
-      isDark ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'
-    }`}>
+    <div className="mx-auto flex min-h-screen max-w-lg flex-col font-sans pb-28 transition-colors duration-300 bg-surface-page text-ink">
       <ActivityHeader helperText={helperText} onBack={() => navigate(-1)} />
       <ActivityTabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
 
@@ -635,111 +628,85 @@ const Activity = () => {
           <div className="mb-4">
             <div
               onClick={() => navigate(trackingPath, { state: currentRide })}
-              className={`w-full overflow-hidden rounded-[24px] border p-5 text-left shadow-lg cursor-pointer transition-all duration-300 ${
-                isDark 
-                  ? 'border-slate-800 bg-slate-900/90 text-white' 
-                  : 'border-slate-200 bg-white text-slate-900'
-              }`}
+              className="w-full overflow-hidden rounded-card-lg border border-line bg-surface p-5 text-left text-ink shadow-card cursor-pointer transition-all duration-300"
             >
               <div className="flex items-center justify-between">
-                <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${
-                  isDark ? 'bg-yellow-400/10 text-yellow-400' : 'bg-emerald-50 text-emerald-700'
-                }`}>
+                <div className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 text-3xs font-black uppercase tracking-[0.12em] bg-brand-soft text-brand">
                   <ShieldCheck size={11} strokeWidth={3} />
                   Active Trip
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${
-                    isDark ? 'bg-yellow-400' : 'bg-emerald-500'
-                  }`} />
-                  <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${
-                    isDark ? 'text-yellow-400' : 'text-emerald-600'
-                  }`}>Live Status</span>
+                  <div className="h-1.5 w-1.5 rounded-pill animate-pulse bg-brand" />
+                  <span className="text-3xs font-black uppercase tracking-[0.14em] text-brand">Live Status</span>
                 </div>
               </div>
 
               <div className="mt-4 flex items-end justify-between">
                 <div>
-                  <h2 className="text-[20px] font-black tracking-tight leading-none">
+                  <h2 className="text-[20px] font-black tracking-tight leading-none text-ink">
                     {rideStageContextLabel}
                   </h2>
-                  <p className="mt-1 text-[11px] font-bold opacity-60">
+                  <p className="mt-1 text-[11px] font-bold text-ink-faint">
                     {isScheduledAcceptedRide ? scheduledDateLabel : (serviceType === 'rental' ? 'Rental Booking' : 'Active Booking')}
                   </p>
                 </div>
                 <div className="relative mb-1">
-                  <div className="absolute -inset-4 rounded-full bg-yellow-400/5 blur-xl animate-pulse" />
-                  <div className={`relative flex h-12 w-12 items-center justify-center rounded-xl shadow-md border ${
-                    isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'
-                  }`}>
+                  <div className="absolute -inset-4 rounded-pill bg-brand-soft blur-xl animate-pulse" />
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-control shadow-card border border-line bg-surface-sunken">
                     <img src={currentRideIcon} alt="" className="h-8 w-8 object-contain" />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex min-w-0 items-center gap-2 text-[11px] font-medium opacity-75">
-                <MapPin size={12} className={`shrink-0 ${isDark ? 'text-yellow-400' : 'text-emerald-500'}`} strokeWidth={2.5} />
+              <div className="mt-4 flex min-w-0 items-center gap-2 text-[11px] font-medium text-ink-soft">
+                <MapPin size={12} className="shrink-0 text-emerald-500" strokeWidth={2.5} />
                 <span className="truncate">{currentRide.pickup || 'Pickup location'}</span>
               </div>
-              <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] font-medium opacity-75">
-                <MapPin size={12} className={`shrink-0 ${isDark ? 'text-yellow-400' : 'text-orange-500'}`} strokeWidth={2.5} />
+              <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] font-medium text-ink-soft">
+                <MapPin size={12} className="shrink-0 text-brand" strokeWidth={2.5} />
                 <span className="truncate">{currentRide.drop || 'Drop location'}</span>
               </div>
 
               {serviceType === 'rental' ? (
-                <div className="mt-3.5 flex items-center gap-2 text-[10px] font-medium">
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
-                    isDark ? 'bg-slate-950 text-slate-300' : 'bg-slate-100 text-slate-600'
-                  }`}>
+                <div className="mt-3.5 flex items-center gap-2 text-2xs font-medium">
+                  <span className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1 bg-surface-sunken text-ink-soft">
                     <Clock3 size={11} />
                     {rentalTimerLabel}
                   </span>
-                  <span className={`rounded-full px-2.5 py-1 ${
-                    isDark ? 'bg-yellow-400/10 text-yellow-400' : 'bg-emerald-50 text-emerald-700'
-                  }`}>
+                  <span className="rounded-pill px-2.5 py-1 bg-brand-soft text-brand">
                     Live charge Rs {rentalCurrentCharge.toFixed(0)}
                   </span>
                 </div>
               ) : isScheduledAcceptedRide ? (
-                <div className="mt-3.5 flex items-center gap-2 text-[10px] font-medium">
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
-                    isDark ? 'bg-slate-950 text-slate-300' : 'bg-sky-50 text-sky-700'
-                  }`}>
+                <div className="mt-3.5 flex items-center gap-2 text-2xs font-medium">
+                  <span className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1 bg-surface-sunken text-ink-soft">
                     <User size={11} />
                     {driverName}
                   </span>
                   {scheduledCountdown ? (
-                    <span className={`rounded-full px-2.5 py-1 ${
-                      isDark ? 'bg-slate-950 text-slate-400' : 'bg-slate-100 text-slate-600'
-                    }`}>
+                    <span className="rounded-pill px-2.5 py-1 bg-surface-sunken text-ink-soft">
                       {scheduledCountdown}
                     </span>
                   ) : null}
                 </div>
               ) : null}
 
-              <div className={`mt-4 flex items-center justify-between rounded-xl p-3 border ${
-                isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-              }`}>
+              <div className="mt-4 flex items-center justify-between rounded-control p-3 border border-line bg-surface-sunken">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center border ${
-                    isDark ? 'bg-slate-900 border-slate-800 text-yellow-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'
-                  }`}>
+                  <div className="h-8 w-8 shrink-0 rounded-pill flex items-center justify-center border border-line bg-surface text-brand">
                     <User size={16} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] opacity-50 leading-none">Driver & Vehicle</p>
-                    <p className="mt-0.5 truncate text-[12.5px] font-bold">{driverName} • {vehicleLabel}</p>
+                    <p className="text-3xs font-semibold uppercase tracking-[0.14em] text-ink-faint leading-none">Driver &amp; Vehicle</p>
+                    <p className="mt-0.5 truncate text-[12.5px] font-bold text-ink">{driverName} • {vehicleLabel}</p>
                   </div>
                 </div>
                 <div className="text-right flex items-center gap-3">
                   <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] opacity-50 leading-none">Fare</p>
-                    <p className="mt-0.5 text-[12.5px] font-bold">₹{Number(serviceType === 'rental' ? rentalCurrentCharge : currentRide?.fare || 0).toFixed(0)}</p>
+                    <p className="text-3xs font-semibold uppercase tracking-[0.14em] text-ink-faint leading-none">Fare</p>
+                    <p className="mt-0.5 text-[12.5px] font-bold text-ink">₹{Number(serviceType === 'rental' ? rentalCurrentCharge : currentRide?.fare || 0).toFixed(0)}</p>
                   </div>
-                  <div className={`inline-flex h-7 w-7 items-center justify-center rounded-[10px] shadow-sm ${
-                    isDark ? 'bg-yellow-400 text-slate-950' : 'bg-slate-900 text-white'
-                  }`}>
+                  <div className="inline-flex h-7 w-7 items-center justify-center rounded-[10px] shadow-card bg-brand text-white">
                     <ChevronRight size={16} strokeWidth={3} />
                   </div>
                 </div>

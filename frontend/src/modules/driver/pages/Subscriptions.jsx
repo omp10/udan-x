@@ -14,6 +14,26 @@ const unwrap = (payload) => payload?.data?.data || payload?.data || payload || {
 const toArray = (value) => (Array.isArray(value) ? value : []);
 const money = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
 
+const TIER_BADGE_CLASS = {
+  basic: 'bg-slate-100 text-slate-700',
+  standard: 'bg-blue-50 text-blue-700',
+  business: 'bg-purple-50 text-purple-700',
+  premium: 'bg-yellow-100 text-yellow-800',
+};
+
+const TierBadge = ({ tier }) => {
+  const key = String(tier || 'basic').toLowerCase();
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${
+        TIER_BADGE_CLASS[key] || TIER_BADGE_CLASS.basic
+      }`}
+    >
+      {key}
+    </span>
+  );
+};
+
 const benefitBadges = (plan = {}) => {
   const items = [];
   if (Number(plan.commission_discount_percent || 0) > 0) {
@@ -191,7 +211,10 @@ const Subscriptions = () => {
                 <div key={item.id} className="rounded-2xl border border-slate-100 px-4 py-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <p className="text-sm font-black text-slate-900">{item.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-black text-slate-900">{item.name}</p>
+                        <TierBadge tier={item.tier} />
+                      </div>
                       <p className="mt-1 text-xs font-semibold text-slate-500">
                         Ends {item.expiresAt ? new Date(item.expiresAt).toLocaleDateString() : 'later'} • {item.coverage_scope}
                       </p>
@@ -222,6 +245,7 @@ const Subscriptions = () => {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-xl font-black text-slate-950">{plan.name}</h3>
+                      <TierBadge tier={plan.tier} />
                       {isActive ? (
                         <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-700">
                           Active

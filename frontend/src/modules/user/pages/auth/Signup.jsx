@@ -292,8 +292,8 @@ const Signup = () => {
 
 
         {/* Ambient Blobs */}
-        <div className="absolute top-[-10%] right-[-10%] w-72 h-72 rounded-full bg-[#FFB300]/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 rounded-full bg-[#FFB300]/5 blur-3xl pointer-events-none" />
+        <div className="absolute top-[-10%] right-[-10%] w-72 h-72 rounded-full bg-[#E85D04]/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 rounded-full bg-[#E85D04]/5 blur-3xl pointer-events-none" />
 
         <AnimatePresence mode="wait">
           {permissionStep === 'location' ? (
@@ -305,7 +305,7 @@ const Signup = () => {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="flex-1 flex flex-col items-center justify-center text-center space-y-8 my-auto z-10"
             >
-              <div className="w-24 h-24 bg-[#FFB300]/10 rounded-full flex items-center justify-center text-[#FFB300] shadow-xl">
+              <div className="w-24 h-24 bg-[#E85D04]/10 rounded-full flex items-center justify-center text-[#E85D04] shadow-xl">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25A7.5 7.5 0 1119.5 10.5z" />
@@ -330,7 +330,7 @@ const Signup = () => {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="flex-1 flex flex-col items-center justify-center text-center space-y-8 my-auto z-10"
             >
-              <div className="w-24 h-24 bg-[#FFB300]/10 rounded-full flex items-center justify-center text-[#FFB300] shadow-xl">
+              <div className="w-24 h-24 bg-[#E85D04]/10 rounded-full flex items-center justify-center text-[#E85D04] shadow-xl">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                 </svg>
@@ -398,7 +398,7 @@ const Signup = () => {
                 className="h-6 w-6 object-contain rounded-full bg-slate-950 p-0.5"
               />
             ) : (
-              <div className="h-6 w-6 bg-[#FFB300] rounded-full flex items-center justify-center shadow-lg">
+              <div className="h-6 w-6 bg-[#E85D04] rounded-full flex items-center justify-center shadow-lg">
                 <span className="text-[11px] font-black italic text-slate-950">{appName[0]?.toUpperCase() || 'R'}</span>
               </div>
             )}
@@ -408,7 +408,7 @@ const Signup = () => {
 
         {/* Floating Title Over Image */}
         <div className="login-hero-text space-y-1.5 pointer-events-none">
-          <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest login-accent-text bg-[#FFB300]/10 px-2.5 py-0.5 rounded-full">
+          <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest login-accent-text bg-[#E85D04]/10 px-2.5 py-0.5 rounded-full">
             {step === 'profile' ? 'Profile Setup' : 'Create Account'}
           </span>
           <h1 className="text-[28px] font-black leading-[1.15] tracking-tight uppercase text-white">
@@ -449,7 +449,7 @@ const Signup = () => {
                 <div className="space-y-4">
                   <div className={`flex items-center gap-4 p-5 rounded-2xl transition-all border-2 ${error
                     ? 'border-rose-500/20 bg-rose-500/5'
-                    : 'border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#FFB300] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 focus-within:shadow-xl'
+                    : 'border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#E85D04] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 focus-within:shadow-xl'
                     }`}>
                     <div className="flex items-center gap-3 pr-4 border-r border-zinc-200 dark:border-white/10">
                       <img src="https://flagcdn.com/w40/in.png" alt="India" className="w-5 h-3.5 object-cover rounded-sm" />
@@ -524,7 +524,7 @@ const Signup = () => {
                 <div className="flex flex-col items-center">
                   <div
                     onClick={() => !photoUploading && fileInputRef.current?.click()}
-                    className={`relative group w-20 h-20 rounded-full bg-zinc-100 dark:bg-white/5 border-2 ${photoUploading ? 'border-zinc-300 dark:border-white/10 cursor-not-allowed' : 'border-zinc-300 dark:border-white/10 hover:border-[#FFB300] cursor-pointer'
+                    className={`relative group w-20 h-20 rounded-full bg-zinc-100 dark:bg-white/5 border-2 ${photoUploading ? 'border-zinc-300 dark:border-white/10 cursor-not-allowed' : 'border-zinc-300 dark:border-white/10 hover:border-[#E85D04] cursor-pointer'
                       } flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md active:scale-95`}
                   >
                     {avatarPreviewUrl ? (
@@ -598,7 +598,7 @@ const Signup = () => {
                   {/* Name */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-extrabold uppercase tracking-widest login-subtitle ml-1">Full Name *</label>
-                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#FFB300] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
+                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#E85D04] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
                       <User size={18} className="login-subtitle" />
                       <input
                         type="text"
@@ -614,7 +614,7 @@ const Signup = () => {
                   {/* Email */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-extrabold uppercase tracking-widest login-subtitle ml-1">Email Address (Optional)</label>
-                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#FFB300] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
+                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#E85D04] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
                       <Mail size={18} className="login-subtitle" />
                       <input
                         type="email"
@@ -636,7 +636,7 @@ const Signup = () => {
                           type="button"
                           onClick={() => setFormData({ ...formData, gender: g.value })}
                           className={`flex-1 py-3.5 px-4 rounded-2xl font-bold transition-all border-2 text-sm text-center cursor-pointer ${formData.gender === g.value
-                            ? 'bg-[#FFB300] border-[#FFB300] text-slate-950 shadow-md shadow-yellow-500/10'
+                            ? 'bg-[#E85D04] border-[#E85D04] text-slate-950 shadow-md shadow-yellow-500/10'
                             : 'border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 login-primary-text'
                             }`}
                         >
@@ -649,7 +649,7 @@ const Signup = () => {
                   {/* Referral Code */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-extrabold uppercase tracking-widest login-subtitle ml-1">Referral Code (Optional)</label>
-                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#FFB300] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
+                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#E85D04] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
                       <Gift size={18} className="login-subtitle" />
                       <input
                         type="text"
@@ -667,7 +667,7 @@ const Signup = () => {
                   {/* Employee Code */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-extrabold uppercase tracking-widest login-subtitle ml-1">Employee Code (Optional)</label>
-                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#FFB300] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
+                    <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-200/50 bg-zinc-100/50 dark:border-white/5 dark:bg-white/5 focus-within:border-[#E85D04] focus-within:bg-zinc-50 dark:focus-within:bg-black/30 transition-all">
                       <User size={18} className="login-subtitle" />
                       <input
                         type="text"
@@ -710,7 +710,7 @@ const Signup = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/taxi/user/support')}
-                    className="w-full py-3.5 text-sm font-extrabold login-subtitle hover:text-[#FFB300] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-3.5 text-sm font-extrabold login-subtitle hover:text-[#E85D04] transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <LifeBuoy size={16} />
                     Need Help?

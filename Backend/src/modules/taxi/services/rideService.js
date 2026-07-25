@@ -16,6 +16,7 @@ import { Ride } from '../user/models/Ride.js';
 import { User } from '../user/models/User.js';
 import { UserWallet } from '../user/models/UserWallet.js';
 import { consumeUserSubscriptionRide, resolveApplicableUserSubscription } from '../user/services/subscriptionService.js';
+import { assertPartnerBookingLimitAvailable } from './partnerSubscriptionService.js';
 import { applyPromoToRideInTransaction } from './promoService.js';
 import { getTipSettings } from './appSettingsService.js';
 import { getBidRideSettings } from './transportSettingsService.js';
@@ -375,6 +376,22 @@ const resolveParcelWeightKg = (parcel = {}) => {
   };
 };
 
+const MAX_PARCEL_HELPERS = 5;
+
+const normalizeAssignedHelpers = (value) =>
+  (Array.isArray(value) ? value : [])
+    .slice(0, MAX_PARCEL_HELPERS)
+    .map((item) => ({
+      helperId: String(item?.helperId || '').trim(),
+      name: String(item?.name || '').trim(),
+      phone: String(item?.phone || '').trim(),
+      helperType: ['loading', 'unloading', 'both'].includes(String(item?.helperType || '').trim().toLowerCase())
+        ? String(item.helperType).trim().toLowerCase()
+        : 'both',
+      charge: toNonNegativeNumber(item?.charge, 0),
+    }))
+    .filter((item) => item.helperId);
+
 export const normalizeParcelPayload = (parcel = {}) => {
   const { weightKg, weightUnit } = resolveParcelWeightKg(parcel);
   const dimensions = parcel.dimensions || {};
@@ -402,15 +419,20 @@ export const normalizeParcelPayload = (parcel = {}) => {
       ? 'outstation'
       : 'city',
     isOutstation: Boolean(parcel.isOutstation || String(parcel.deliveryScope || '').trim().toLowerCase() === 'outstation'),
-    // helper charges are overwritten server-side in deliveryService; whatever the
-    // client claims here is only a hint about which option it selected.
+    // helper charges and the assignment are overwritten server-side in
+    // deliveryService (assignHelpersForBooking); whatever the client claims here
+    // is only a hint about which option and how many people it asked for. The
+    // pass-through matters because syncDeliveryWithRide re-normalizes the parcel,
+    // so anything dropped here vanishes from the Delivery mirror.
     helper: {
       type: ['loading', 'unloading', 'both'].includes(String(parcel.helper?.type || parcel.helperType || '').trim().toLowerCase())
         ? String(parcel.helper?.type || parcel.helperType).trim().toLowerCase()
         : 'none',
+      count: Math.min(MAX_PARCEL_HELPERS, Math.floor(toNonNegativeNumber(parcel.helper?.count ?? parcel.helperCount, 0))),
       loadingCharge: toNonNegativeNumber(parcel.helper?.loadingCharge, 0),
       unloadingCharge: toNonNegativeNumber(parcel.helper?.unloadingCharge, 0),
       totalCharge: toNonNegativeNumber(parcel.helper?.totalCharge, 0),
+      assigned: normalizeAssignedHelpers(parcel.helper?.assigned),
     },
     warehouse: {
       pickupId: String(parcel.warehouse?.pickupId || parcel.pickupWarehouseId || '').trim(),
@@ -1262,6 +1284,14 @@ export const createRideRecord = async ({
     throw new ApiError(400, 'Promo codes cannot be combined with subscription rides');
   }
 
+  // Parcels get a second OTP: Ride.otp gates trip START (sender hands the goods
+  // over), parcel.deliveryOtp gates HANDOVER at the drop (receiver takes them).
+  const normalizedParcel = normalizeParcelPayload(
+    normalizedServiceType === 'parcel'
+      ? { ...(parcel || {}), deliveryOtp: String(parcel?.deliveryOtp || '').trim() || generateRideOtp() }
+      : parcel,
+  );
+
   if (!promoCode) {
     const ride = await Ride.create({
       userId,
@@ -1294,7 +1324,7 @@ export const createRideRecord = async ({
       service_location_id: resolvedServiceLocationId,
       transport_type: normalizedTransportType,
       pricingSnapshot,
-      parcel: normalizeParcelPayload(parcel),
+      parcel: normalizedParcel,
       intercity: normalizeIntercityPayload(intercity),
       stops: normalizeStopsPayload(stops),
       scheduledAt: normalizedScheduledAt,
@@ -1350,7 +1380,7 @@ export const createRideRecord = async ({
             service_location_id: resolvedServiceLocationId,
             transport_type: normalizedTransportType,
             pricingSnapshot,
-            parcel: normalizeParcelPayload(parcel),
+            parcel: normalizedParcel,
             intercity: normalizeIntercityPayload(intercity),
             stops: normalizeStopsPayload(stops),
             scheduledAt: normalizedScheduledAt,
@@ -1779,6 +1809,7 @@ export const acceptRideAssignment = async ({ rideId, driverId }) => {
       }
 
       await ensureDriverWalletCanAcceptRide(driver, { session });
+      await assertPartnerBookingLimitAvailable({ driverId: driver._id, session });
 
       ride.driverId = driver._id;
       ride.status = RIDE_STATUS.ACCEPTED;
@@ -1834,7 +1865,32 @@ const rideStatusConfig = {
   },
 };
 
-export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymentMethod, otp }) => {
+// Parcel handover guard for the -> completed edge. Mirrors the rider-OTP guard on
+// the -> started edge below: only fires for parcel rides that actually carry a
+// deliveryOtp (rows created before proof-of-delivery existed stay completable),
+// and is satisfied either by the receiver PIN or by proof already recorded
+// through recordParcelProofOfDelivery.
+export const assertParcelHandoverAllowed = (ride, { nextStatus, deliveryOtp }) => {
+  if (
+    nextStatus !== RIDE_LIVE_STATUS.COMPLETED ||
+    ride.liveStatus === RIDE_LIVE_STATUS.COMPLETED ||
+    String(ride.serviceType || 'ride') !== 'parcel'
+  ) {
+    return;
+  }
+
+  const expected = String(ride.parcel?.deliveryOtp || '').trim();
+
+  if (!expected || ride.parcel?.proofOfDelivery?.deliveredAt) {
+    return;
+  }
+
+  if (String(deliveryOtp || '').trim() !== expected) {
+    throw new ApiError(400, 'Incorrect delivery OTP from receiver');
+  }
+};
+
+export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymentMethod, otp, deliveryOtp }) => {
   const config = rideStatusConfig[nextStatus];
 
   if (!config) {
@@ -1863,6 +1919,8 @@ export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymen
       throw new ApiError(400, 'Incorrect ride OTP');
     }
   }
+
+  assertParcelHandoverAllowed(ride, { nextStatus, deliveryOtp });
 
   ride.liveStatus = nextStatus;
   ride.status = config.persistedStatus;
@@ -1917,6 +1975,87 @@ export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymen
   populatedRide.$locals.walletUpdate = walletUpdate;
 
   return populatedRide;
+};
+
+// Proof URLs are produced by POST /api/common/upload/image (Cloudinary), so only
+// remote http(s) URLs are accepted — a data: URL here would park megabytes of
+// base64 in the ride document.
+const normalizeProofUrl = (value, label) => {
+  const url = String(value || '').trim();
+
+  if (!url) {
+    return '';
+  }
+
+  if (!/^https?:\/\//i.test(url)) {
+    throw new ApiError(400, `${label} must be an uploaded image URL`);
+  }
+
+  return url;
+};
+
+export const recordParcelProofOfDelivery = async ({
+  rideId,
+  driverId,
+  deliveryOtp,
+  photoUrl,
+  signatureUrl,
+  receivedBy,
+}) => {
+  const ride = await Ride.findOne({ _id: rideId, driverId });
+
+  if (!ride) {
+    throw new ApiError(404, 'Assigned ride not found');
+  }
+
+  if (String(ride.serviceType || 'ride') !== 'parcel') {
+    throw new ApiError(400, 'Proof of delivery applies to parcel deliveries only');
+  }
+
+  if (![RIDE_LIVE_STATUS.STARTED, RIDE_LIVE_STATUS.ARRIVED].includes(ride.liveStatus)) {
+    throw new ApiError(409, `Parcel cannot be handed over while ${ride.liveStatus}`);
+  }
+
+  // Same rule as the -> completed edge: verify when an OTP exists, skip for legacy rows.
+  const expectedOtp = String(ride.parcel?.deliveryOtp || '').trim();
+  if (expectedOtp && String(deliveryOtp || '').trim() !== expectedOtp) {
+    throw new ApiError(400, 'Incorrect delivery OTP from receiver');
+  }
+
+  ride.parcel.proofOfDelivery = {
+    photoUrl: normalizeProofUrl(photoUrl, 'Delivery photo'),
+    signatureUrl: normalizeProofUrl(signatureUrl, 'Signature'),
+    receivedBy: String(receivedBy || '').trim().slice(0, 120),
+    deliveredAt: new Date(),
+  };
+
+  await ride.save();
+  await syncDeliveryWithRide(ride);
+
+  return populateRideRealtime(ride._id);
+};
+
+export const getParcelProofOfDelivery = async (rideId) => {
+  if (!mongoose.Types.ObjectId.isValid(String(rideId))) {
+    throw new ApiError(400, 'Invalid delivery id');
+  }
+
+  const ride = await Ride.findById(rideId).select('serviceType parcel completedAt').lean();
+
+  if (!ride || String(ride.serviceType || 'ride') !== 'parcel') {
+    throw new ApiError(404, 'Delivery not found');
+  }
+
+  const proof = ride.parcel?.proofOfDelivery || {};
+
+  return {
+    rideId: String(rideId),
+    receiverName: ride.parcel?.receiverName || '',
+    photoUrl: proof.photoUrl || '',
+    signatureUrl: proof.signatureUrl || '',
+    receivedBy: proof.receivedBy || '',
+    deliveredAt: proof.deliveredAt || null,
+  };
 };
 
 export const appendRideMessage = async ({ rideId, role, senderId, message }) => {
@@ -2245,6 +2384,7 @@ export const acceptRideBidAssignment = async ({ rideId, bidId, userId }) => {
       }
 
       await ensureDriverWalletCanAcceptRide(driver, { session });
+      await assertPartnerBookingLimitAvailable({ driverId: driver._id, session });
 
       ride.driverId = driver._id;
       ride.fare = Number(bid.bidFare || ride.fare || 0);

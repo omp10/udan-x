@@ -505,6 +505,12 @@ const rideSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Labour settlement (walletService.settleHelperEarningsForRide). Same pattern
+    // as ownerSettledAt: one flag so Helper.total_earnings cannot double-count.
+    helpersSettledAt: {
+      type: Date,
+      default: null,
+    },
     promo: {
       code: {
         type: String,

@@ -18,7 +18,12 @@ import {
     ArrowLeft,
     Clock3,
     MapPinned,
+    Camera,
+    PenLine,
+    Loader2,
+    Trash2,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleMap, MarkerF, OverlayView, OverlayViewF, PolylineF } from '@react-google-maps/api';
 import { HAS_VALID_GOOGLE_MAPS_KEY, useBaseGoogleMapsLoader } from '../../admin/utils/googleMaps';
@@ -29,6 +34,7 @@ import autoIcon from '../../../assets/icons/auto.png';
 import bikeIcon from '../../../assets/icons/bike.png';
 import carIcon from '../../../assets/icons/car.png';
 import { getLocalDriverToken } from '../services/registrationService';
+import { uploadService } from '../../../shared/services/uploadService';
 import { BACKEND_ORIGIN } from '../../../shared/api/runtimeConfig';
 
 const MAP_CONTAINER_STYLE = {
@@ -373,6 +379,105 @@ const withDriverAuthorization = (token) => (
         }
         : {}
 );
+
+const extractUploadUrl = (payload) =>
+    payload?.data?.url || payload?.data?.secureUrl || payload?.url || payload?.secureUrl || '';
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Could not read that image'));
+    reader.readAsDataURL(file);
+});
+
+// Plain canvas + pointer events; a signature is a polyline, it does not need a library.
+const SignaturePad = ({ value, onChange, accentColor }) => {
+    const canvasRef = React.useRef(null);
+    const isDrawingRef = React.useRef(false);
+    const hasInkRef = React.useRef(false);
+
+    const pointFor = (event) => {
+        const canvas = canvasRef.current;
+        const bounds = canvas.getBoundingClientRect();
+
+        return {
+            x: (event.clientX - bounds.left) * (canvas.width / bounds.width),
+            y: (event.clientY - bounds.top) * (canvas.height / bounds.height),
+        };
+    };
+
+    const startStroke = (event) => {
+        const context = canvasRef.current?.getContext('2d');
+        if (!context) return;
+
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        const { x, y } = pointFor(event);
+        context.lineWidth = 3;
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        context.strokeStyle = '#0f172a';
+        context.beginPath();
+        context.moveTo(x, y);
+        isDrawingRef.current = true;
+    };
+
+    const extendStroke = (event) => {
+        if (!isDrawingRef.current) return;
+        const context = canvasRef.current?.getContext('2d');
+        if (!context) return;
+
+        const { x, y } = pointFor(event);
+        context.lineTo(x, y);
+        context.stroke();
+        hasInkRef.current = true;
+    };
+
+    const endStroke = () => {
+        if (!isDrawingRef.current) return;
+        isDrawingRef.current = false;
+
+        if (hasInkRef.current) {
+            onChange(canvasRef.current.toDataURL('image/png'));
+        }
+    };
+
+    const clearPad = () => {
+        const canvas = canvasRef.current;
+        canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+        hasInkRef.current = false;
+        onChange('');
+    };
+
+    return (
+        <div>
+            <canvas
+                ref={canvasRef}
+                width={640}
+                height={220}
+                onPointerDown={startStroke}
+                onPointerMove={extendStroke}
+                onPointerUp={endStroke}
+                onPointerLeave={endStroke}
+                onPointerCancel={endStroke}
+                className="h-[130px] w-full rounded-2xl border-2 border-dashed border-slate-200 bg-white"
+                style={{ touchAction: 'none' }}
+            />
+            <div className="mt-2 flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                    {value ? 'Signature captured' : 'Receiver signs above'}
+                </p>
+                <button
+                    type="button"
+                    onClick={clearPad}
+                    className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em]"
+                    style={{ color: accentColor }}
+                >
+                    <Trash2 size={12} strokeWidth={2.5} /> Clear
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const normalizeHeading = (value, fallback = 0) => {
     const numeric = Number(value);
@@ -1031,6 +1136,14 @@ const ActiveTrip = () => {
     const [isGeneratingPaymentQr, setIsGeneratingPaymentQr] = useState(false);
     const [qrZoomed, setQrZoomed] = useState(true);
     const [arrivalGuardError, setArrivalGuardError] = useState('');
+    const [isDigitalSignatureEnabled, setIsDigitalSignatureEnabled] = useState(true);
+    const [handoverOtp, setHandoverOtp] = useState('');
+    const [handoverReceivedBy, setHandoverReceivedBy] = useState('');
+    const [handoverPhotoUrl, setHandoverPhotoUrl] = useState('');
+    const [handoverSignatureDataUrl, setHandoverSignatureDataUrl] = useState('');
+    const [isUploadingHandoverPhoto, setIsUploadingHandoverPhoto] = useState(false);
+    const [isSavingHandoverProof, setIsSavingHandoverProof] = useState(false);
+    const [handoverProofSavedAt, setHandoverProofSavedAt] = useState('');
     const [localArrivedAt, setLocalArrivedAt] = useState('');
     const [waitingNow, setWaitingNow] = useState(Date.now());
     const [map, setMap] = useState(null);
@@ -1449,6 +1562,12 @@ const ActiveTrip = () => {
         explicitDriverEarnings: liveRaw?.driverEarnings ?? effectiveState?.driverEarnings,
     });
     const paymentCollectionLabel = isParcel ? 'receiver' : 'rider';
+    const liveParcel = liveRaw?.parcel || liveRequest?.raw?.parcel || {};
+    // The receiver PIN is only present on deliveries booked after proof-of-delivery
+    // shipped; older rows stay completable without proof, exactly like the server guard.
+    const isHandoverOtpRequired = Boolean(liveParcel.deliveryOtp);
+    const isHandoverProofRecorded = Boolean(handoverProofSavedAt || liveParcel.proofOfDelivery?.deliveredAt);
+    const isHandoverBlocking = isParcel && isHandoverOtpRequired && !isHandoverProofRecorded;
     const routeStrokeColor = '#000000';
     const routeAccentSoft = hexToRgba(routeStrokeColor, 0.08);
     const routeAccentMuted = hexToRgba(routeStrokeColor, 0.18);
@@ -1531,6 +1650,8 @@ const ActiveTrip = () => {
             paymentMethod: paymentMode || undefined,
             // the server re-checks the rider's PIN on the -> started edge
             ...(rideOtp ? { otp: rideOtp } : {}),
+            // ...and the receiver's PIN on the -> completed edge of a parcel trip
+            ...(isParcel && nextStatus === 'completed' && handoverOtp ? { deliveryOtp: handoverOtp } : {}),
             ...(driverPaymentCollection ? { driverPaymentCollection } : {}),
         });
     };
@@ -1546,6 +1667,7 @@ const ActiveTrip = () => {
                     {
                         status: 'completed',
                         paymentMethod: paymentMode || undefined,
+                        deliveryOtp: isParcel ? handoverOtp : undefined,
                         driverPaymentCollection: buildDriverPaymentCollection({
                             mode: paymentMode,
                             status: driverPaymentStatus,
@@ -1565,6 +1687,108 @@ const ActiveTrip = () => {
         navigate('/taxi/driver/home');
     };
 
+    // `enable_digital_signature` (admin business settings) decides whether the
+    // handover asks the receiver to sign at all.
+    useEffect(() => {
+        if (!isParcel) {
+            return;
+        }
+
+        let active = true;
+
+        api.get('/rides/app-settings/parcel-proof')
+            .then((response) => {
+                if (!active) return;
+                const settings = response?.data?.settings || response?.settings || {};
+                setIsDigitalSignatureEnabled(settings.digitalSignatureEnabled !== false);
+            })
+            .catch(() => {});
+
+        return () => {
+            active = false;
+        };
+    }, [isParcel]);
+
+    const handleHandoverPhotoChange = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+
+        if (!file) {
+            return;
+        }
+
+        setIsUploadingHandoverPhoto(true);
+
+        try {
+            const dataUrl = await readFileAsDataUrl(file);
+
+            if (!dataUrl.startsWith('data:image/')) {
+                throw new Error('Please choose an image file');
+            }
+
+            const uploadedUrl = extractUploadUrl(await uploadService.uploadImage(dataUrl, 'delivery-proof'));
+
+            if (!uploadedUrl) {
+                throw new Error('Photo upload did not return an image URL');
+            }
+
+            setHandoverPhotoUrl(uploadedUrl);
+            toast.success('Delivery photo attached');
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error?.message || 'Could not upload the delivery photo');
+        } finally {
+            setIsUploadingHandoverPhoto(false);
+        }
+    };
+
+    const submitHandoverProof = async () => {
+        if (isHandoverOtpRequired && handoverOtp.length !== 4) {
+            toast.error('Ask the receiver for their 4 digit delivery PIN.');
+            return;
+        }
+
+        if (!handoverPhotoUrl) {
+            toast.error('Capture a photo of the delivered parcel.');
+            return;
+        }
+
+        if (isDigitalSignatureEnabled && !handoverSignatureDataUrl) {
+            toast.error('Ask the receiver to sign before you finish.');
+            return;
+        }
+
+        setIsSavingHandoverProof(true);
+
+        try {
+            const driverToken = getLocalDriverToken();
+            let signatureUrl = '';
+
+            if (isDigitalSignatureEnabled && handoverSignatureDataUrl) {
+                signatureUrl = extractUploadUrl(
+                    await uploadService.uploadImage(handoverSignatureDataUrl, 'delivery-signature'),
+                );
+            }
+
+            await api.post(
+                `/rides/${rideId}/parcel/proof`,
+                {
+                    deliveryOtp: handoverOtp,
+                    photoUrl: handoverPhotoUrl,
+                    signatureUrl,
+                    receivedBy: handoverReceivedBy || destinationContact?.name || '',
+                },
+                withDriverAuthorization(driverToken),
+            );
+
+            setHandoverProofSavedAt(new Date().toISOString());
+            toast.success('Handover confirmed');
+        } catch (error) {
+            toast.error(error?.response?.data?.message || 'Could not save the proof of delivery');
+        } finally {
+            setIsSavingHandoverProof(false);
+        }
+    };
+
     const completeRideForUserSync = async (paymentMode = '') => {
         if (!rideId) {
             return;
@@ -1577,6 +1801,7 @@ const ActiveTrip = () => {
                 {
                     status: 'completed',
                     paymentMethod: paymentMode || undefined,
+                    deliveryOtp: isParcel ? handoverOtp : undefined,
                     driverPaymentCollection: buildDriverPaymentCollection({
                         mode: paymentMode,
                         status: driverPaymentStatus,
@@ -2779,7 +3004,124 @@ const ActiveTrip = () => {
                                     </div>
                                 </div>
                             </div>
-                            {driverPaymentStatus === 'pending' && (
+                            {isParcel && (
+                                <div className="mb-6 rounded-[28px] border border-slate-100 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+                                    <div className="mb-4 flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: routeStrokeColor }}>Proof Of Delivery</p>
+                                            <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                                                {isHandoverProofRecorded
+                                                    ? 'Handover recorded. Collect the payment to close this delivery.'
+                                                    : 'Confirm the handover with the receiver before collecting payment.'}
+                                            </p>
+                                        </div>
+                                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${isHandoverProofRecorded ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-900 text-white'}`}>
+                                            {isHandoverProofRecorded ? <CheckCircle2 size={18} strokeWidth={2.5} /> : <Package size={18} strokeWidth={2.5} />}
+                                        </div>
+                                    </div>
+
+                                    {isHandoverProofRecorded ? (
+                                        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+                                            {(handoverPhotoUrl || liveParcel.proofOfDelivery?.photoUrl) && (
+                                                <img
+                                                    src={handoverPhotoUrl || liveParcel.proofOfDelivery?.photoUrl}
+                                                    alt="Delivered parcel"
+                                                    className="h-14 w-14 shrink-0 rounded-xl border border-white object-cover"
+                                                />
+                                            )}
+                                            <div className="min-w-0">
+                                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-700">Received By</p>
+                                                <p className="mt-1 truncate text-[13px] font-black text-slate-900">
+                                                    {handoverReceivedBy || liveParcel.proofOfDelivery?.receivedBy || destinationContact?.name || 'Receiver'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {isHandoverOtpRequired && (
+                                                <div>
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Receiver Delivery PIN</p>
+                                                    <input
+                                                        type="tel"
+                                                        inputMode="numeric"
+                                                        maxLength={4}
+                                                        value={handoverOtp}
+                                                        onChange={(event) => setHandoverOtp(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                        placeholder="0000"
+                                                        className="mt-2 h-14 w-full rounded-2xl border-2 border-slate-100 bg-slate-50 text-center text-[24px] font-black tracking-[0.42em] text-slate-900 shadow-inner outline-none placeholder:text-slate-300"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Received By</p>
+                                                <input
+                                                    value={handoverReceivedBy}
+                                                    onChange={(event) => setHandoverReceivedBy(event.target.value.slice(0, 120))}
+                                                    placeholder={destinationContact?.name || 'Receiver name'}
+                                                    className="mt-2 h-12 w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 text-[13px] font-bold text-slate-900 outline-none placeholder:text-slate-300"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Delivery Photo</p>
+                                                <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 px-4 py-3">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        capture="environment"
+                                                        className="hidden"
+                                                        onChange={handleHandoverPhotoChange}
+                                                    />
+                                                    {handoverPhotoUrl ? (
+                                                        <img src={handoverPhotoUrl} alt="Delivered parcel" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                                                    ) : (
+                                                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm">
+                                                            {isUploadingHandoverPhoto ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} strokeWidth={2.5} />}
+                                                        </span>
+                                                    )}
+                                                    <span className="min-w-0 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                                                        {isUploadingHandoverPhoto
+                                                            ? 'Uploading photo...'
+                                                            : handoverPhotoUrl
+                                                                ? 'Photo attached - tap to retake'
+                                                                : 'Tap to photograph the parcel'}
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            {isDigitalSignatureEnabled && (
+                                                <div>
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Receiver Signature</p>
+                                                    <div className="mt-2">
+                                                        <SignaturePad
+                                                            value={handoverSignatureDataUrl}
+                                                            onChange={setHandoverSignatureDataUrl}
+                                                            accentColor={routeStrokeColor}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <button
+                                                onClick={submitHandoverProof}
+                                                disabled={isSavingHandoverProof || isUploadingHandoverPhoto}
+                                                className="flex h-13 w-full items-center justify-center gap-2 rounded-xl text-[12px] font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-95 disabled:opacity-60"
+                                                style={{ backgroundColor: routeStrokeColor, boxShadow: `0 16px 28px ${routeAccentMuted}` }}
+                                            >
+                                                {isSavingHandoverProof ? <Loader2 size={16} className="animate-spin" /> : <PenLine size={16} strokeWidth={2.5} />}
+                                                {isSavingHandoverProof ? 'Saving Proof...' : 'Confirm Handover'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {driverPaymentStatus === 'pending' && isHandoverBlocking && (
+                                <p className="mb-6 text-center text-[11px] font-black uppercase tracking-wider text-amber-600">
+                                    Confirm the handover to unlock payment
+                                </p>
+                            )}
+                            {driverPaymentStatus === 'pending' && !isHandoverBlocking && (
                                 <div className="grid grid-cols-2 gap-3 mb-6">
                                     {[
                                         { id: 'cash', label: 'Cash', icon: Banknote },

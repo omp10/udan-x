@@ -434,7 +434,7 @@ const BikeRentalHome = () => {
               placeholder="Search by vehicle, category or brand..."
               className={`w-full border rounded-[20px] pl-11 pr-11 py-3.5 text-[14px] font-bold placeholder:text-slate-400/80 focus:outline-none transition-all ${
                 isDark
-                  ? 'bg-[#0f1b2d] border-zinc-800 text-white focus:bg-[#162238] focus:border-[#FFC400]/40'
+                  ? 'bg-[#0f1b2d] border-zinc-800 text-white focus:bg-[#162238] focus:border-[#E85D04]/40'
                   : 'bg-slate-100/50 border-slate-200/60 text-slate-950 focus:border-slate-900/10 focus:bg-white'
               }`}
             />
@@ -533,7 +533,7 @@ const BikeRentalHome = () => {
                   className={`shrink-0 rounded-[18px] border px-3.5 py-2.5 transition-all ${
                     isActive
                       ? isDark
-                        ? 'border-[#FFC400] bg-[#FFC400] text-[#05070D] shadow-[0_10px_24px_rgba(255,196,0,0.2)]'
+                        ? 'border-[#E85D04] bg-[#E85D04] text-[#05070D] shadow-[0_10px_24px_rgba(255,196,0,0.2)]'
                         : 'border-slate-900 bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]'
                       : isDark
                         ? 'border-zinc-800 bg-[#0f1b2d] text-zinc-300 shadow-sm'
@@ -720,7 +720,7 @@ const BikeRentalHome = () => {
                   <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={() => openVehicleDetail(v)}
-                    className={`px-4 py-2.5 rounded-[12px] text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all ${isDark ? 'bg-[#FFC400] text-[#05070D] hover:bg-[#FFD54F]' : 'bg-slate-950 text-white hover:bg-black'}`}
+                    className={`px-4 py-2.5 rounded-[12px] text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all ${isDark ? 'bg-[#E85D04] text-[#05070D] hover:bg-[#FFD54F]' : 'bg-slate-950 text-white hover:bg-black'}`}
                   >
                     Book Now <ChevronRight size={13} strokeWidth={3} className="opacity-60" />
                   </motion.button>

@@ -43,8 +43,8 @@ const SplashScreen = () => {
           { x: width + 50, y: height * 0.8 },
         ],
         cars: [
-          { progress: 0, speed: 0.0015, color: '#FFC400' },
-          { progress: 0.5, speed: 0.0012, color: '#FFC400' }
+          { progress: 0, speed: 0.0015, color: '#E85D04' },
+          { progress: 0.5, speed: 0.0012, color: '#E85D04' }
         ]
       },
       {
@@ -56,7 +56,7 @@ const SplashScreen = () => {
         ],
         cars: [
           { progress: 0.2, speed: 0.0018, color: '#FFD740' },
-          { progress: 0.8, speed: 0.0014, color: '#FFC400' }
+          { progress: 0.8, speed: 0.0014, color: '#E85D04' }
         ]
       },
       {
@@ -67,7 +67,7 @@ const SplashScreen = () => {
           { x: width * 0.9, y: -50 },
         ],
         cars: [
-          { progress: 0.35, speed: 0.0016, color: '#FFC400' }
+          { progress: 0.35, speed: 0.0016, color: '#E85D04' }
         ]
       }
     ];
@@ -175,7 +175,7 @@ const SplashScreen = () => {
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block pointer-events-none z-0" />
 
       {/* Subtle yellow glow behind logo/text */}
-      <div className="absolute w-[280px] h-[280px] rounded-full bg-[#FFC400]/10 blur-[80px] pointer-events-none z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute w-[280px] h-[280px] rounded-full bg-[#E85D04]/10 blur-[80px] pointer-events-none z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
 
       {/* Centered Content */}
       <div className="flex flex-col items-center justify-center text-center z-20 relative flex-1">
@@ -191,7 +191,7 @@ const SplashScreen = () => {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-[11px] font-semibold tracking-[0.2em] text-[#FFC400] uppercase leading-none opacity-90">
+          <p className="text-[11px] font-semibold tracking-[0.2em] text-[#E85D04] uppercase leading-none opacity-90">
             Your trusted journey partner
           </p>
         </motion.div>
@@ -203,17 +203,17 @@ const SplashScreen = () => {
           <motion.div
             animate={{ scale: [1, 1.4, 1], opacity: [0.3, 1, 0.3] }}
             transition={{ repeat: Infinity, duration: 1.2, delay: 0 }}
-            className="w-2 h-2 rounded-full bg-[#FFC400]"
+            className="w-2 h-2 rounded-full bg-[#E85D04]"
           />
           <motion.div
             animate={{ scale: [1, 1.4, 1], opacity: [0.3, 1, 0.3] }}
             transition={{ repeat: Infinity, duration: 1.2, delay: 0.2 }}
-            className="w-2 h-2 rounded-full bg-[#FFC400]"
+            className="w-2 h-2 rounded-full bg-[#E85D04]"
           />
           <motion.div
             animate={{ scale: [1, 1.4, 1], opacity: [0.3, 1, 0.3] }}
             transition={{ repeat: Infinity, duration: 1.2, delay: 0.4 }}
-            className="w-2 h-2 rounded-full bg-[#FFC400]"
+            className="w-2 h-2 rounded-full bg-[#E85D04]"
           />
         </div>
       </div>

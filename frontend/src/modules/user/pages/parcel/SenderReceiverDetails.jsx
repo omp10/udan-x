@@ -304,6 +304,36 @@ const matchesDeliveryCategory = (vehicle, categoryId) => {
   return searchTokens.some((token) => vehicleName.includes(token) || iconType.includes(token));
 };
 
+// Mirrors goodsLogisticsService.selectHelpersFromPool on the server: a 'both'
+// request needs one person who does both jobs, least-used helpers go first and
+// price is the sum of those people's own rates. Duplicated deliberately so the
+// "+₹" the customer sees is the amount the server will actually bill — the
+// server stays authoritative and recomputes it from the Helper collection.
+const HELPER_ROLES = { loading: ['loading'], unloading: ['unloading'], both: ['loading', 'unloading'] };
+const MAX_HELPERS_PER_BOOKING = 5;
+
+const pickHelpers = (pool, helperType, count) => {
+  const roles = HELPER_ROLES[helperType];
+  if (!roles || !Array.isArray(pool)) return [];
+
+  const chargeOf = (helper) =>
+    roles.reduce(
+      (sum, role) => sum + (Number(role === 'loading' ? helper.loading_charge : helper.unloading_charge) || 0),
+      0,
+    );
+
+  return pool
+    .filter((helper) => helper?.available !== false && roles.every((role) => helper.helper_type === 'both' || helper.helper_type === role))
+    .sort(
+      (first, second) =>
+        (Number(first.total_jobs || 0) - Number(second.total_jobs || 0)) || (chargeOf(first) - chargeOf(second)),
+    )
+    .slice(0, count)
+    .map((helper) => ({ ...helper, charge: chargeOf(helper) }));
+};
+
+const sumHelperCharge = (picked) => picked.reduce((sum, helper) => sum + helper.charge, 0);
+
 const readWeightKg = (value) => {
   const text = String(value || '').toLowerCase();
   if (text.includes('under 5')) return 5;
@@ -1042,13 +1072,16 @@ const SenderReceiverDetails = () => {
   const [goodsCategory, setGoodsCategory] = useState(() => parcelState.goodsCategory || 'Household');
   const [fragile, setFragile] = useState(() => Boolean(parcelState.fragile));
   const [helperType, setHelperType] = useState(() => parcelState.helperType || 'none');
+  const [helperCount, setHelperCount] = useState(() =>
+    Math.min(MAX_HELPERS_PER_BOOKING, Math.max(1, Math.floor(Number(parcelState.helperCount) || 1))),
+  );
   const [materialName, setMaterialName] = useState(() => parcelState.materialName || '');
   const [packageCount, setPackageCount] = useState(() => parcelState.packageCount || '1');
   const [handlingInstructions, setHandlingInstructions] = useState(() => parcelState.handlingInstructions || '');
   const [dimensions, setDimensions] = useState(() => parcelState.dimensions || { length: '', width: '', height: '', unit: 'cm' });
-  // 0 until /users/helpers responds — the admin sets these, they are not ₹150 by fiat
-  const [loadingRate, setLoadingRate] = useState(0);
-  const [unloadingRate, setUnloadingRate] = useState(0);
+  // Empty until /users/helpers responds — the admin sets the roster and its rates,
+  // they are not ₹150 by fiat, and the count offered is capped by who exists.
+  const [helperPool, setHelperPool] = useState([]);
   const [goodsSettings, setGoodsSettings] = useState({
     enable_fragile_option: true,
     enable_helper_booking: true,
@@ -1118,12 +1151,13 @@ const SenderReceiverDetails = () => {
       goodsCategory,
       fragile,
       helperType,
+      helperCount,
       materialName,
       packageCount,
       handlingInstructions,
       dimensions,
     }));
-  }, [drop, dropCoords, effectiveReceiverMobile, effectiveReceiverName, parcelState, pickup, pickupCoords, senderMobile, senderName, goodsWeight, goodsCategory, fragile, helperType, materialName, packageCount, handlingInstructions, dimensions]);
+  }, [drop, dropCoords, effectiveReceiverMobile, effectiveReceiverName, parcelState, pickup, pickupCoords, senderMobile, senderName, goodsWeight, goodsCategory, fragile, helperType, helperCount, materialName, packageCount, handlingInstructions, dimensions]);
 
   useEffect(() => {
     let active = true;
@@ -1164,12 +1198,7 @@ const SenderReceiverDetails = () => {
           || helpersResponse?.data?.data
           || helpersResponse?.data
           || [];
-        if (Array.isArray(helpersList) && helpersList.length > 0) {
-          const loadingHelper = helpersList.find(h => h.helper_type === 'loading' || h.helper_type === 'both');
-          const unloadingHelper = helpersList.find(h => h.helper_type === 'unloading' || h.helper_type === 'both');
-          if (loadingHelper) setLoadingRate(Number(loadingHelper.loading_charge || 0));
-          if (unloadingHelper) setUnloadingRate(Number(unloadingHelper.unloading_charge || 0));
-        }
+        setHelperPool(Array.isArray(helpersList) ? helpersList : []);
         const remoteGoodsSettings = settingsResponse?.data?.data?.settings || settingsResponse?.data?.settings;
         if (remoteGoodsSettings) {
           setGoodsSettings(prev => ({ ...prev, ...remoteGoodsSettings }));
@@ -1422,6 +1451,17 @@ const SenderReceiverDetails = () => {
     };
   }, [dropCoords, estimatedDistanceKm, isGoogleMapsLoaded, pickupCoords]);
 
+  // How many helpers the roster can actually supply for the selected roles, and
+  // what those specific people cost. Only a quote — the server re-resolves it.
+  const helperCapacity = useMemo(
+    () => pickHelpers(helperPool, helperType, MAX_HELPERS_PER_BOOKING).length,
+    [helperPool, helperType],
+  );
+  const helperQuote = useMemo(() => {
+    const picked = pickHelpers(helperPool, helperType, helperCount);
+    return { count: picked.length, charge: sumHelperCharge(picked) };
+  }, [helperCount, helperPool, helperType]);
+
   const estimatedFare = useMemo(() => {
     if (!drop.trim()) {
       return null;
@@ -1432,11 +1472,9 @@ const SenderReceiverDetails = () => {
       return null;
     }
 
-    // Dynamic Helper Calculation
-    let helperCharge = 0;
-    if (helperType === 'loading') helperCharge = loadingRate;
-    else if (helperType === 'unloading') helperCharge = unloadingRate;
-    else if (helperType === 'both') helperCharge = loadingRate + unloadingRate;
+    // Helper charge scales with how many helpers are actually available for the
+    // roles selected, not with a flat per-role rate times the requested count.
+    const helperCharge = helperQuote.charge;
 
     const baseDistance = Number(primaryFare.baseDistance || 0);
     const subtotal = Number(primaryFare.subtotal || 0) + helperCharge;
@@ -1456,7 +1494,7 @@ const SenderReceiverDetails = () => {
       serviceTaxAmount: serviceTaxAmount,
       helperCharge: helperCharge,
     };
-  }, [drop, effectiveDistanceKm, primarySelectedVehicle, helperType, loadingRate, unloadingRate]);
+  }, [drop, effectiveDistanceKm, primarySelectedVehicle, helperQuote]);
 
   const validate = () => {
     const nextErrors = {};
@@ -1915,14 +1953,14 @@ const SenderReceiverDetails = () => {
           },
           handlingInstructions,
           isFragile: fragile,
-          // Charges are re-resolved server-side from the Helper collection; these
-          // are sent only so the estimate shown matches what the server bills.
+          // Only the selection is sent. Which helpers get assigned and what they
+          // cost is resolved server-side from the Helper collection at booking
+          // time, so no client-sent amount is ever billed.
           helperBooked: helperType !== 'none',
           helperType,
           helper: {
             type: helperType,
-            loadingCharge: helperType === 'loading' || helperType === 'both' ? loadingRate : 0,
-            unloadingCharge: helperType === 'unloading' || helperType === 'both' ? unloadingRate : 0,
+            count: helperType === 'none' ? 0 : helperCount,
           },
           warehouse: {
             pickupId: selectedWarehouse?.role === 'pickup' ? selectedWarehouse.id : '',
@@ -2265,24 +2303,69 @@ const SenderReceiverDetails = () => {
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: 'none', label: 'No Helper' },
-                      { id: 'loading', label: `Loading Only (+₹${loadingRate})` },
-                      { id: 'unloading', label: `Unloading Only (+₹${unloadingRate})` },
-                      { id: 'both', label: `Both Helpers (+₹${loadingRate + unloadingRate})` },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => setHelperType(opt.id)}
-                        className={`rounded-2xl border p-3 text-center text-xs font-black transition-all ${
-                          helperType === opt.id
-                            ? 'border-yellow-400 bg-yellow-50/50 text-yellow-800'
-                            : 'border-slate-100 bg-slate-50/30 text-slate-500 hover:border-slate-200'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
+                      { id: 'loading', label: 'Loading Only' },
+                      { id: 'unloading', label: 'Unloading Only' },
+                      { id: 'both', label: 'Loading + Unloading' },
+                    ].map((opt) => {
+                      const perHelper = sumHelperCharge(pickHelpers(helperPool, opt.id, 1));
+                      const unavailable = opt.id !== 'none' && !pickHelpers(helperPool, opt.id, 1).length;
+
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          disabled={unavailable}
+                          onClick={() => setHelperType(opt.id)}
+                          className={`rounded-2xl border p-3 text-center text-xs font-black transition-all disabled:opacity-40 ${
+                            helperType === opt.id
+                              ? 'border-yellow-400 bg-yellow-50/50 text-yellow-800'
+                              : 'border-slate-100 bg-slate-50/30 text-slate-500 hover:border-slate-200'
+                          }`}
+                        >
+                          {opt.label}
+                          {opt.id !== 'none' && (
+                            <span className="mt-0.5 block text-[10px] font-bold">
+                              {unavailable ? 'None available' : `+₹${perHelper} each`}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {/* Multiple helper selection. Capped at who the roster can
+                      actually supply so we never quote labour we cannot send. */}
+                  {helperType !== 'none' && (
+                    <div className="mt-2 flex items-center justify-between rounded-2xl border border-yellow-100 bg-yellow-50/40 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-200">How many helpers?</p>
+                        <p className="text-[10px] font-bold text-slate-400">
+                          {helperCapacity} available · +₹{helperQuote.charge} total
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setHelperCount((prev) => Math.max(1, prev - 1))}
+                          disabled={helperCount <= 1}
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 font-black disabled:opacity-40"
+                        >
+                          −
+                        </button>
+                        <span className="w-5 text-center text-sm font-black text-slate-900 dark:text-slate-100">
+                          {helperQuote.count}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setHelperCount((prev) => Math.min(helperCapacity, MAX_HELPERS_PER_BOOKING, prev + 1))}
+                          disabled={helperQuote.count >= Math.min(helperCapacity, MAX_HELPERS_PER_BOOKING)}
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 font-black disabled:opacity-40"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

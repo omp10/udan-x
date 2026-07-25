@@ -15,6 +15,7 @@ import bikeIcon from '../../../../assets/icons/bike.png';
 import autoIcon from '../../../../assets/icons/auto.png';
 import deliveryIcon from '../../../../assets/icons/Delivery.png';
 import { useSettings } from '../../../../shared/context/SettingsContext';
+import { Badge, BottomSheet, Button, Card, Modal } from '../../components/ui';
 
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
 const DEFAULT_CENTER = { lat: 22.7196, lng: 75.8577 };
@@ -1341,129 +1342,97 @@ const RideTracking = () => {
     });
   };
 
-  const ActionBtn = ({ icon: Icon, label, onClick, colorClass }) => (
-    <motion.button
-      whileTap={{ scale: 0.94 }}
-      onClick={onClick}
-      className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-[14px] border border-slate-100 bg-slate-50/80 transition-all ${colorClass || ''}`}
-    >
-      <Icon size={17} className="text-slate-700" strokeWidth={2} />
-      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
-    </motion.button>
-  );
-
   return (
-    <div className="min-h-screen bg-slate-50 font-sans overflow-hidden lg:grid lg:grid-cols-12 lg:h-screen lg:max-w-none relative">
+    <div className="min-h-screen bg-surface-page font-sans text-ink overflow-hidden lg:grid lg:grid-cols-12 lg:h-screen lg:max-w-none relative">
       <AnimatePresence>
         {shareToast && (
           <motion.div
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-slate-900 text-white px-5 py-3 rounded-[14px] text-[12px] font-black shadow-xl whitespace-nowrap"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-brand text-white px-5 py-3 rounded-control text-[12px] font-black shadow-premium whitespace-nowrap"
           >
             Ride details copied!
           </motion.div>
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {shareSheetOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[210] flex items-end justify-center bg-slate-950/45 px-4 pb-5 pt-12"
-            onClick={() => setShareSheetOpen(false)}
-          >
-            <motion.div
-              initial={{ y: 48, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 48, opacity: 0 }}
-              onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-2xl"
+      <BottomSheet
+        open={shareSheetOpen}
+        onClose={() => setShareSheetOpen(false)}
+        title="Send trip details"
+        subtitle="Choose how you want to share this ongoing ride."
+      >
+        <div className="grid grid-cols-2 gap-3">
+          {navigator.share ? (
+            <button
+              type="button"
+              onClick={handleShare}
+              className="rounded-card border border-line bg-surface-sunken px-4 py-4 text-left"
             >
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Share Ride</p>
-              <h3 className="mt-2 text-[20px] font-black tracking-tight text-slate-900">Send trip details</h3>
-              <p className="mt-1 text-[12px] font-bold text-slate-500">Choose how you want to share this ongoing ride.</p>
+              <p className="text-[13px] font-black text-ink">System share</p>
+              <p className="mt-1 text-[11px] font-bold text-ink-faint">Open phone share apps</p>
+            </button>
+          ) : null}
+          <a
+            href={buildShareLinks(buildRideShareText({
+              appName,
+              driverName: driver.name,
+              vehicleNumber: driver.plate || driver.vehicleNumber,
+              pickupLabel,
+              dropLabel,
+            })).whatsapp}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-card border border-line bg-surface-sunken px-4 py-4 text-left"
+          >
+            <p className="text-[13px] font-black text-ink">WhatsApp</p>
+            <p className="mt-1 text-[11px] font-bold text-ink-faint">Share in chat</p>
+          </a>
+          <a
+            href={buildShareLinks(buildRideShareText({
+              appName,
+              driverName: driver.name,
+              vehicleNumber: driver.plate || driver.vehicleNumber,
+              pickupLabel,
+              dropLabel,
+            })).sms}
+            className="rounded-card border border-line bg-surface-sunken px-4 py-4 text-left"
+          >
+            <p className="text-[13px] font-black text-ink">SMS</p>
+            <p className="mt-1 text-[11px] font-bold text-ink-faint">Open messages</p>
+          </a>
+          <button
+            type="button"
+            onClick={handleCopyShareText}
+            className="rounded-card border border-line bg-surface-sunken px-4 py-4 text-left"
+          >
+            <p className="text-[13px] font-black text-ink">Copy details</p>
+            <p className="mt-1 text-[11px] font-bold text-ink-faint">Copy to clipboard</p>
+          </button>
+        </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                {navigator.share ? (
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4 text-left"
-                  >
-                    <p className="text-[13px] font-black text-slate-900">System share</p>
-                    <p className="mt-1 text-[11px] font-bold text-slate-500">Open phone share apps</p>
-                  </button>
-                ) : null}
-                <a
-                  href={buildShareLinks(buildRideShareText({
-                    appName,
-                    driverName: driver.name,
-                    vehicleNumber: driver.plate || driver.vehicleNumber,
-                    pickupLabel,
-                    dropLabel,
-                  })).whatsapp}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4 text-left"
-                >
-                  <p className="text-[13px] font-black text-slate-900">WhatsApp</p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-500">Share in chat</p>
-                </a>
-                <a
-                  href={buildShareLinks(buildRideShareText({
-                    appName,
-                    driverName: driver.name,
-                    vehicleNumber: driver.plate || driver.vehicleNumber,
-                    pickupLabel,
-                    dropLabel,
-                  })).sms}
-                  className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4 text-left"
-                >
-                  <p className="text-[13px] font-black text-slate-900">SMS</p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-500">Open messages</p>
-                </a>
-                <button
-                  type="button"
-                  onClick={handleCopyShareText}
-                  className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4 text-left"
-                >
-                  <p className="text-[13px] font-black text-slate-900">Copy details</p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-500">Copy to clipboard</p>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShareSheetOpen(false)}
-                className="mt-4 h-12 w-full rounded-[18px] bg-slate-900 text-[12px] font-black uppercase tracking-[0.16em] text-white"
-              >
-                Close
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <Button block size="lg" variant="secondary" className="mt-4" onClick={() => setShareSheetOpen(false)}>
+          Close
+        </Button>
+      </BottomSheet>
 
       {/* Map Column (Mobile full, Desktop right 7 cols) */}
-      <div className="absolute inset-0 z-0 lg:relative lg:col-span-7 lg:col-start-6 lg:h-full lg:z-0 lg:order-2 bg-slate-200">
-        <div className="absolute inset-0 z-0 bg-slate-200">
+      <div className="absolute inset-0 z-0 lg:relative lg:col-span-7 lg:col-start-6 lg:h-full lg:z-0 lg:order-2 bg-surface-sunken">
+        <div className="absolute inset-0 z-0 bg-surface-sunken">
         {!HAS_VALID_GOOGLE_MAPS_KEY ? (
-          <div className="flex h-full w-full items-center justify-center bg-slate-200 px-6 text-center">
-            <div className="rounded-[18px] bg-white/90 px-4 py-4 shadow-sm">
-              <p className="text-[12px] font-bold text-slate-900">Google Maps key missing</p>
-              <p className="mt-1 text-[11px] font-bold text-slate-500">Set `VITE_GOOGLE_MAPS_API_KEY` in `frontend/.env`.</p>
-            </div>
+          <div className="flex h-full w-full items-center justify-center bg-surface-sunken px-6 text-center">
+            <Card>
+              <p className="text-[12px] font-bold text-ink">Google Maps key missing</p>
+              <p className="mt-1 text-[11px] font-bold text-ink-faint">Set `VITE_GOOGLE_MAPS_API_KEY` in `frontend/.env`.</p>
+            </Card>
           </div>
         ) : loadError ? (
-          <div className="flex h-full w-full items-center justify-center bg-slate-200 px-6 text-center">
-            <div className="rounded-[18px] bg-white/90 px-4 py-4 shadow-sm">
-              <p className="text-[12px] font-bold text-slate-900">Google Maps failed to load</p>
-              <p className="mt-1 text-[11px] font-bold text-slate-500">Check the browser key restrictions and reload.</p>
-            </div>
+          <div className="flex h-full w-full items-center justify-center bg-surface-sunken px-6 text-center">
+            <Card>
+              <p className="text-[12px] font-bold text-ink">Google Maps failed to load</p>
+              <p className="mt-1 text-[11px] font-bold text-ink-faint">Check the browser key restrictions and reload.</p>
+            </Card>
           </div>
         ) : isLoaded ? (
           <GoogleMap
@@ -1507,10 +1476,10 @@ const RideTracking = () => {
             />
           </GoogleMap>
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-slate-200">
-            <div className="rounded-[16px] bg-white/90 px-4 py-3 shadow-sm text-[12px] font-bold text-slate-700">
+          <div className="flex h-full w-full items-center justify-center bg-surface-sunken">
+            <Card className="text-[12px] font-bold text-ink-soft">
               Loading map
-            </div>
+            </Card>
           </div>
         )}
         </div>
@@ -1518,46 +1487,46 @@ const RideTracking = () => {
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => navigate(routeHome)}
-          className="absolute top-8 left-4 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-[12px] shadow-[0_4px_14px_rgba(15,23,42,0.10)] border border-white/80 flex items-center justify-center lg:hidden"
+          className="absolute top-8 left-4 z-10 w-10 h-10 bg-surface/95 backdrop-blur-md rounded-control shadow-card border border-line flex items-center justify-center lg:hidden"
         >
-          <ChevronLeft size={18} className="text-slate-900" strokeWidth={2.5} />
+          <ChevronLeft size={18} className="text-ink" strokeWidth={2.5} />
         </motion.button>
 
-        <div className="absolute top-8 left-16 right-4 z-10 bg-white/90 backdrop-blur-md rounded-[14px] px-3.5 py-2.5 shadow-[0_4px_14px_rgba(15,23,42,0.08)] border border-white/80 lg:hidden">
-          <p className="text-[11px] font-black text-slate-500 truncate">{pickupLabel} → {dropLabel}</p>
+        <div className="absolute top-8 left-16 right-4 z-10 bg-surface/95 backdrop-blur-md rounded-control px-3.5 py-2.5 shadow-card border border-line lg:hidden">
+          <p className="text-[11px] font-black text-ink-soft truncate">{pickupLabel} → {dropLabel}</p>
         </div>
 
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={() => navigate(routeSos)}
-          className="absolute top-24 right-4 z-10 bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-full border border-white/80 shadow-[0_4px_14px_rgba(15,23,42,0.08)] flex items-center gap-1.5 lg:hidden"
+          className="absolute top-24 right-4 z-10 bg-surface/95 backdrop-blur-md px-3.5 py-2 rounded-pill border border-line shadow-card flex items-center gap-1.5 lg:hidden"
         >
           <Shield size={13} className="text-blue-500" strokeWidth={2.5} />
-          <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Safety</span>
+          <span className="text-[10px] font-bold text-ink-soft uppercase tracking-wider">Safety</span>
         </motion.button>
 
         {routeError && (
-          <div className="absolute top-24 left-4 z-10 rounded-[12px] border border-amber-100 bg-white/90 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Route</p>
-            <p className="text-[11px] font-bold text-slate-700">Using fallback path while directions load.</p>
+          <div className="absolute top-24 left-4 z-10 rounded-control border border-line bg-surface/95 px-3 py-2 shadow-card">
+            <p className="text-[10px] font-bold text-ink-faint uppercase tracking-widest">Route</p>
+            <p className="text-[11px] font-bold text-ink-soft">Using fallback path while directions load.</p>
           </div>
         )}
 
         {isScheduledUpcoming ? (
-          <div className="absolute top-[132px] left-4 right-4 z-10 rounded-[18px] border border-emerald-100 bg-white/92 px-4 py-3 shadow-[0_10px_28px_rgba(16,185,129,0.12)] backdrop-blur-md">
+          <div className="absolute top-[132px] left-4 right-4 z-10 rounded-card border border-line bg-surface/95 px-4 py-3 shadow-card backdrop-blur-md">
             <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Scheduled ride</p>
-              <p className="mt-1 text-[15px] font-black tracking-tight text-slate-950">{scheduledDateLabel}</p>
-              <p className="mt-1 text-[11px] font-bold text-slate-500">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Scheduled ride</p>
+              <p className="mt-1 text-[15px] font-black tracking-tight text-ink">{scheduledDateLabel}</p>
+              <p className="mt-1 text-[11px] font-bold text-ink-faint">
                 {hasLiveDriverLocation
                   ? 'Your driver has started sharing location for this pickup.'
                   : 'Driver assigned. We will light up live movement here as pickup time gets closer.'}
               </p>
             </div>
-            <div className="rounded-[16px] bg-emerald-50 px-3 py-2 text-right">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-700">Countdown</p>
-              <p className="mt-1 text-[13px] font-black text-slate-950">{scheduledCountdown || 'Ready'}</p>
+            <div className="rounded-control bg-emerald-500/12 px-3 py-2 text-right">
+              <p className="text-3xs font-black uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Countdown</p>
+              <p className="mt-1 text-[13px] font-black text-ink">{scheduledCountdown || 'Ready'}</p>
             </div>
           </div>
         </div>
@@ -1567,35 +1536,35 @@ const RideTracking = () => {
       {/* BOTTOM SHEET (Mobile) / LEFT COLUMN (Desktop) */}
       <motion.div
         animate={{ y: drawerOpen ? 0 : 420 }}
-        className="absolute bottom-0 left-0 right-0 bg-white shadow-[0_-12px_44px_rgba(15,23,42,0.12)] z-20 rounded-t-[28px] border-t border-slate-100/50 lg:relative lg:col-span-5 lg:col-start-1 lg:row-start-1 lg:h-full lg:max-h-none lg:rounded-none lg:shadow-none lg:border-r lg:border-slate-200 lg:z-10 lg:!transform-none lg:p-6 lg:flex lg:flex-col lg:justify-center"
+        className="absolute bottom-0 left-0 right-0 bg-surface shadow-sheet z-20 rounded-t-sheet border-t border-line lg:relative lg:col-span-5 lg:col-start-1 lg:row-start-1 lg:h-full lg:max-h-none lg:rounded-none lg:shadow-none lg:border-r lg:border-line lg:z-10 lg:!transform-none lg:p-6 lg:flex lg:flex-col lg:justify-center"
       >
-        <div className="w-12 h-1.5 bg-slate-200/60 rounded-full mx-auto mt-2.5 mb-3.5 cursor-pointer hover:bg-slate-300 transition-colors lg:hidden" onClick={() => setDrawerOpen(!drawerOpen)} />
+        <div className="w-12 h-1.5 bg-line rounded-pill mx-auto mt-2.5 mb-3.5 cursor-pointer transition-colors lg:hidden" onClick={() => setDrawerOpen(!drawerOpen)} />
 
         <div className="px-4 pb-6 space-y-3.5 lg:px-0">
-          
+
           {/* Desktop Header */}
           <div className="hidden lg:flex items-center justify-between mb-8">
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
-              <h1 className="text-[24px] font-bold text-slate-900 tracking-tight leading-none">Trip Overview</h1>
+              <p className="text-[10px] font-bold text-ink-faint uppercase tracking-wider mb-1">Status</p>
+              <h1 className="text-[24px] font-bold text-ink tracking-tight leading-none">Trip Overview</h1>
             </div>
-            <button onClick={() => navigate(routeHome)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors">
-              <ChevronLeft size={18} className="text-slate-900" />
-            </button>
+            <Button variant="secondary" size="sm" aria-label="Back" onClick={() => navigate(routeHome)} className="h-10 w-10 px-0 rounded-pill">
+              <ChevronLeft size={18} />
+            </Button>
           </div>
 
           {/* Current Route Desktop */}
-          <div className="hidden lg:block bg-slate-50 border border-slate-100 rounded-[20px] p-4 mb-6">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] leading-none mb-2">Current Route</p>
+          <div className="hidden lg:block bg-surface-sunken border border-line rounded-card p-4 mb-6">
+            <p className="text-[10px] font-bold text-ink-faint uppercase tracking-[0.1em] leading-none mb-2">Current Route</p>
             <div className="flex flex-col gap-2">
                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  <p className="text-[13px] font-medium text-slate-700 truncate">{pickupLabel}</p>
+                  <div className="w-2 h-2 rounded-pill bg-emerald-500 shrink-0" />
+                  <p className="text-[13px] font-medium text-ink-soft truncate">{pickupLabel}</p>
                </div>
-               <div className="w-px h-3 bg-slate-200 ml-1" />
+               <div className="w-px h-3 bg-line ml-1" />
                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
-                  <p className="text-[13px] font-medium text-slate-700 truncate">{dropLabel}</p>
+                  <div className="w-2 h-2 rounded-pill bg-brand shrink-0" />
+                  <p className="text-[13px] font-medium text-ink-soft truncate">{dropLabel}</p>
                </div>
             </div>
           </div>
@@ -1603,7 +1572,7 @@ const RideTracking = () => {
           <div className="flex items-start justify-between">
             <div className="flex gap-3 min-w-0">
               <div className="relative shrink-0">
-                <div className="w-[62px] h-[62px] rounded-[20px] bg-[#1d2333] overflow-hidden shadow-[0_8px_20px_rgba(15,23,42,0.15)]">
+                <div className="w-[62px] h-[62px] rounded-card bg-[#1d2333] overflow-hidden shadow-card">
                   {driverImage ? (
                     <img
                       src={driverImage}
@@ -1618,24 +1587,24 @@ const RideTracking = () => {
                   )}
                 </div>
                 {/* Car Badge */}
-                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-lg bg-[#111827] border-2 border-white flex items-center justify-center shadow-md">
+                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-lg bg-[#111827] border-2 border-surface flex items-center justify-center shadow-card">
                    <img src={vehicleIcon} alt="Vehicle icon" className="h-3.5 w-3.5 object-contain brightness-0 invert" draggable={false} onError={(e) => { e.target.onerror = null; e.target.src = carIcon; }} />
                 </div>
                 {/* Rating Badge */}
-                <div className="absolute -bottom-1 -right-1 bg-yellow-400 px-1.5 py-0.5 rounded-full border-2 border-white flex items-center gap-0.5 shadow-md">
-                  <Star size={9} className="text-slate-900 fill-slate-900" />
-                  <span className="text-[9px] font-black text-slate-900">{driver.rating || '4.9'}</span>
+                <div className="absolute -bottom-1 -right-1 bg-brand px-1.5 py-0.5 rounded-pill border-2 border-surface flex items-center gap-0.5 shadow-card">
+                  <Star size={9} className="text-white fill-white" />
+                  <span className="text-3xs font-black text-white">{driver.rating || '4.9'}</span>
                 </div>
               </div>
 
               <div className="min-w-0 pt-0.5">
-                <h3 className="truncate text-[17px] font-black text-slate-900 leading-tight tracking-tight">
+                <h3 className="truncate text-[17px] font-black text-ink leading-tight tracking-tight">
                   {driver.name || 'James Bond'}
                 </h3>
-                <p className="text-[13px] font-black text-[#f97316] mt-1 tracking-tight">
+                <p className="text-[13px] font-black text-brand mt-1 tracking-tight">
                   {tripStatus === 'arrived' ? 'Reached destination' : tripStatus === 'started' || tripStatus === 'ongoing' ? 'Trip started' : driverSubtitle}
                 </p>
-                <p className="truncate text-[11px] font-bold text-slate-400 mt-0.5 uppercase tracking-[0.14em]">
+                <p className="truncate text-[11px] font-bold text-ink-faint mt-0.5 uppercase tracking-[0.14em]">
                   {driver.plate || 'MH12AB1234'} &middot; {vehicleLabel}
                 </p>
               </div>
@@ -1643,58 +1612,58 @@ const RideTracking = () => {
 
             {/* OTP CARD - High Fidelity */}
             {otp && (
-              <div className="bg-slate-50 border border-slate-200 rounded-[20px] px-3 py-3 flex flex-col items-center justify-center min-w-[80px] shadow-sm">
-                <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em] mb-1 leading-none">OTP</span>
-                <span className="text-[18px] font-black text-slate-900 tracking-tighter leading-none">{otp}</span>
+              <div className="bg-surface-sunken border border-line rounded-card px-3 py-3 flex flex-col items-center justify-center min-w-[80px] shadow-card">
+                <span className="text-3xs font-black text-brand uppercase tracking-[0.18em] mb-1 leading-none">OTP</span>
+                <span className="text-[18px] font-black text-ink tracking-tighter leading-none">{otp}</span>
               </div>
             )}
           </div>
 
           {isScheduledRide ? (
-            <div className="rounded-[22px] border border-emerald-100 bg-emerald-50/70 px-4 py-4 shadow-sm">
+            <div className="rounded-card-lg border border-line bg-emerald-500/8 px-4 py-4 shadow-card">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-emerald-700">Trip plan</p>
-                  <p className="mt-1 text-[15px] font-black text-slate-950">{scheduledDateLabel}</p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-500">
+                  <p className="text-3xs font-black uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-400">Trip plan</p>
+                  <p className="mt-1 text-[15px] font-black text-ink">{scheduledDateLabel}</p>
+                  <p className="mt-1 text-[11px] font-bold text-ink-faint">
                     {isScheduledUpcoming
                       ? 'We will switch from booking mode to live pickup tracking automatically as your slot approaches.'
                       : 'Your scheduled ride is now in its live service window.'}
                   </p>
                 </div>
-                <div className="rounded-[16px] bg-white px-3 py-2 text-right shadow-sm">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Status</p>
-                  <p className="mt-1 text-[13px] font-black text-slate-950">{isScheduledUpcoming ? scheduledCountdown || 'Ready' : 'Live now'}</p>
+                <div className="rounded-control bg-surface px-3 py-2 text-right shadow-card">
+                  <p className="text-3xs font-black uppercase tracking-[0.18em] text-ink-faint">Status</p>
+                  <p className="mt-1 text-[13px] font-black text-ink">{isScheduledUpcoming ? scheduledCountdown || 'Ready' : 'Live now'}</p>
                 </div>
               </div>
             </div>
           ) : null}
 
           {isWaitingForOtp && (
-            <div className="rounded-[24px] border border-amber-100 bg-amber-50/70 px-4 py-4 shadow-sm">
+            <div className="rounded-card-lg border border-line bg-amber-500/8 px-4 py-4 shadow-card">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-amber-500 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-control bg-surface text-amber-500 shadow-card">
                     <Clock3 size={18} strokeWidth={2.5} />
                   </div>
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-amber-600">Waiting Clock</p>
-                    <p className="mt-1 text-[22px] font-black tracking-tight text-slate-900">{formatTimerClock(waitingElapsedSeconds)}</p>
+                    <p className="text-3xs font-black uppercase tracking-[0.22em] text-amber-600 dark:text-amber-400">Waiting Clock</p>
+                    <p className="mt-1 text-[22px] font-black tracking-tight text-ink">{formatTimerClock(waitingElapsedSeconds)}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Free Left</p>
-                  <p className="mt-1 text-[13px] font-black text-slate-900">{formatTimerClock(freeWaitingRemainingSeconds)}</p>
+                  <p className="text-3xs font-black uppercase tracking-[0.18em] text-ink-faint">Free Left</p>
+                  <p className="mt-1 text-[13px] font-black text-ink">{formatTimerClock(freeWaitingRemainingSeconds)}</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-white px-3 py-3 shadow-sm">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Free Before Ride</p>
-                  <p className="mt-1 text-[13px] font-black text-slate-900">{formatWholeMinutes(freeWaitingBeforeMinutes)}</p>
+                <div className="rounded-control bg-surface px-3 py-3 shadow-card">
+                  <p className="text-3xs font-black uppercase tracking-[0.18em] text-ink-faint">Free Before Ride</p>
+                  <p className="mt-1 text-[13px] font-black text-ink">{formatWholeMinutes(freeWaitingBeforeMinutes)}</p>
                 </div>
-                <div className="rounded-2xl bg-white px-3 py-3 shadow-sm">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Waiting Charge</p>
-                  <p className="mt-1 text-[13px] font-black text-slate-900">
+                <div className="rounded-control bg-surface px-3 py-3 shadow-card">
+                  <p className="text-3xs font-black uppercase tracking-[0.18em] text-ink-faint">Waiting Charge</p>
+                  <p className="mt-1 text-[13px] font-black text-ink">
                     Rs {waitingChargePerMinute}/min
                     {waitingChargeableMinutes > 0 ? ` • ${waitingChargeableMinutes} billable` : ''}
                   </p>
@@ -1704,8 +1673,8 @@ const RideTracking = () => {
           )}
 
           {/* Detailed Vehicle Status Card - High Fidelity */}
-          <div className="flex items-center gap-3 rounded-[22px] bg-slate-50/40 border border-slate-50/80 px-3 py-3 shadow-[0_2px_12px_rgba(15,23,42,0.02)]">
-            <div className="w-12 h-12 shrink-0 flex items-center justify-center rounded-[16px] bg-white shadow-sm border border-slate-100/50 overflow-hidden p-2">
+          <div className="flex items-center gap-3 rounded-card-lg bg-surface-sunken border border-line px-3 py-3 shadow-card">
+            <div className="w-12 h-12 shrink-0 flex items-center justify-center rounded-control bg-surface shadow-card border border-line overflow-hidden p-2">
                {hasVehiclePhoto ? (
                   <img
                     src={vehicleImage}
@@ -1718,9 +1687,9 @@ const RideTracking = () => {
                 )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 mb-0.5">Vehicle</p>
-              <p className="text-[15px] font-black text-slate-900 leading-tight truncate">{vehicleLabel}</p>
-              <p className="text-[12px] font-bold text-slate-500 mt-0.5 truncate">{vehicleDetails || 'Blue'}</p>
+              <p className="text-3xs font-black uppercase tracking-[0.18em] text-ink-faint mb-0.5">Vehicle</p>
+              <p className="text-[15px] font-black text-ink leading-tight truncate">{vehicleLabel}</p>
+              <p className="text-[12px] font-bold text-ink-faint mt-0.5 truncate">{vehicleDetails || 'Blue'}</p>
             </div>
           </div>
 
@@ -1736,76 +1705,53 @@ const RideTracking = () => {
                 key={btn.id}
                 whileTap={{ scale: 0.94 }}
                 onClick={btn.action}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-[18px] bg-white border border-slate-100/60 shadow-[0_2px_8px_rgba(15,23,42,0.03)] hover:bg-slate-50 transition-all duration-200"
+                className="flex flex-col items-center gap-1.5 py-3 rounded-card bg-surface border border-line shadow-card hover:bg-surface-sunken transition-all duration-200"
               >
                 <div className="p-0.5">
-                  <btn.icon size={18} className="text-slate-800" strokeWidth={2} />
+                  <btn.icon size={18} className="text-ink" strokeWidth={2} />
                 </div>
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] leading-none">{btn.label}</span>
+                <span className="text-3xs font-black text-ink-faint uppercase tracking-[0.1em] leading-none">{btn.label}</span>
               </motion.button>
             ))}
           </div>
 
           {/* Footer: Fare & Cancellation Section */}
-          <div className="flex items-end justify-between pt-2 border-t border-slate-50">
+          <div className="flex items-end justify-between pt-2 border-t border-line">
             <div className="space-y-0.5">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] leading-none mb-1">Total Fare</p>
+              <p className="text-3xs font-black text-ink-faint uppercase tracking-[0.18em] leading-none mb-1">Total Fare</p>
               <div className="flex items-center gap-2">
-                <span className="text-[19px] font-black text-slate-950 tracking-tight leading-none">Rs {fare}.00</span>
-                <span className="text-[9px] font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg uppercase tracking-wider border border-slate-200/50 shadow-sm">{paymentMethod}</span>
+                <span className="text-[19px] font-black text-ink tracking-tight leading-none">Rs {fare}.00</span>
+                <Badge>{paymentMethod}</Badge>
               </div>
             </div>
-            <motion.button
-              whileTap={{ scale: 0.96 }}
+            <Button
+              variant="secondary"
               onClick={() => setShowCancelConfirm(true)}
-              className="bg-white border-2 border-slate-50 text-red-500 font-black text-[11px] uppercase tracking-[0.16em] px-5 py-3 rounded-[18px] shadow-[0_8px_20px_rgba(239,68,68,0.08)] active:shadow-none hover:bg-red-50/10 transition-all"
+              className="text-rose-500 text-[11px] uppercase tracking-[0.16em]"
             >
               Cancel
-            </motion.button>
+            </Button>
           </div>
         </div>
       </motion.div>
 
-      <AnimatePresence>
-        {showCancelConfirm && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCancelConfirm(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] max-w-lg mx-auto"
-            />
-            <motion.div
-              initial={{ scale: 0.92, opacity: 0, y: 40 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.92, opacity: 0, y: 40 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[82%] max-w-sm bg-white rounded-[28px] p-7 z-[101] shadow-2xl text-center"
-            >
-              <div className="w-14 h-14 bg-red-50 rounded-[18px] flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle size={26} className="text-red-400" strokeWidth={2} />
-              </div>
-              <h3 className="text-[18px] font-bold text-slate-900 mb-1.5">Cancel your ride?</h3>
-              <p className="text-[13px] font-bold text-slate-400 mb-6 leading-relaxed">Your captain is already on the way.</p>
-              <div className="space-y-2.5">
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleCancelRide}
-                  className="w-full bg-slate-900 text-white py-3.5 rounded-[16px] text-[13px] font-bold uppercase tracking-widest"
-                >
-                  Yes, Cancel
-                </motion.button>
-                <button
-                  onClick={() => setShowCancelConfirm(false)}
-                  className="w-full py-3.5 text-[13px] font-bold text-slate-400 uppercase tracking-widest"
-                >
-                  No, Go Back
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <Modal open={showCancelConfirm} onClose={() => setShowCancelConfirm(false)}>
+        <div className="text-center">
+          <div className="w-14 h-14 bg-rose-500/12 rounded-card flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={26} className="text-rose-500" strokeWidth={2} />
+          </div>
+          <h3 className="text-[18px] font-black text-ink mb-1.5">Cancel your ride?</h3>
+          <p className="text-[13px] font-bold text-ink-faint mb-6 leading-relaxed">Your captain is already on the way.</p>
+          <div className="space-y-2.5">
+            <Button block size="lg" variant="danger" onClick={handleCancelRide} className="uppercase tracking-widest text-[13px]">
+              Yes, Cancel
+            </Button>
+            <Button block variant="ghost" onClick={() => setShowCancelConfirm(false)} className="uppercase tracking-widest text-[13px]">
+              No, Go Back
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -802,11 +802,10 @@ export const listOwnerPayoutRequests = async (req, res) => {
 
 // Debits the owner wallet up front (atomic conditional $inc) and records the hold
 // on the OwnerWalletTransaction ledger, so a second request cannot spend the same
-// balance. Admin approval only pays out; the owner-side cancel below refunds.
-//
-// ponytail: no admin-side settlement hook — adminService.approveDriverWithdrawalRequest
-// requires driver_id and is a reserved file, so owner requests are settled offline
-// and reconciled by the owner cancel path. Wire owner_id into that service later.
+// balance. Admin approval only marks the payout as paid (nothing left to debit);
+// the owner-side cancel below and adminService.rejectOwnerWithdrawalRequest are the
+// two paths that return the hold, each gated on a conditional status flip so the
+// refund can only happen once.
 export const createOwnerPayoutRequest = async (req, res) => {
   const owner = await resolveOwner(req);
   const walletSettings = await getWalletSettings();

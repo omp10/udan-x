@@ -189,6 +189,9 @@ const Subscriptions = () => {
                         </div>
 
                         <div className="mt-3.5 flex flex-wrap gap-1.5">
+                          <Badge tone="brand" className="capitalize">
+                            {plan.tier || 'basic'}
+                          </Badge>
                           <Badge>{plan.vehicle_type?.name || 'Vehicle category'}</Badge>
                           <Badge tone="brand">{plan.duration} days</Badge>
                           <Badge tone="warning">

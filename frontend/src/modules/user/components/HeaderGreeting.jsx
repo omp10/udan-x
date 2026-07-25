@@ -80,7 +80,7 @@ const HeaderGreeting = ({ floating = false, hideSearch = false }) => {
                     transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
                   />
                 ) : (
-                  <span className="relative z-10 text-lg font-black tracking-wider text-[#ffc400] uppercase font-['Outfit']">{appName}</span>
+                  <span className="relative z-10 text-lg font-black tracking-wider text-[#E85D04] uppercase font-['Outfit']">{appName}</span>
                 )}
               </motion.div>
 

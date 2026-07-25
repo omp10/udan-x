@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { env } from '../../../../config/env.js';
 import { ApiError } from '../../../../utils/ApiError.js';
+import { Helper } from '../../admin/models/Helper.js';
 import { Owner } from '../../admin/models/Owner.js';
 import { OwnerWalletTransaction } from '../../admin/models/OwnerWalletTransaction.js';
 import { SetPrice } from '../../admin/models/SetPrice.js';
@@ -384,6 +385,63 @@ const settleOwnerCommissionForRide = async ({ ride, fare, session }) => {
   return { ownerId: owner._id, ownerEarnings, ownerCommission, balance: balanceAfter };
 };
 
+// Collapses a ride's assigned helpers into one $inc per person. Pure and exported
+// so the idempotency guard is testable without a Mongo transaction: once
+// helpersSettledAt is stamped there is nothing left to credit.
+export const buildHelperEarningIncrements = (ride) => {
+  if (!ride || ride.helpersSettledAt) {
+    return [];
+  }
+
+  const byHelperId = new Map();
+
+  for (const item of ride.parcel?.helper?.assigned || []) {
+    const helperId = String(item?.helperId || '').trim();
+
+    if (!helperId || !mongoose.isValidObjectId(helperId)) {
+      continue;
+    }
+
+    // Math.max(NaN, 0) is NaN, which would $inc total_earnings into garbage.
+    const rawCharge = Number(item?.charge);
+    const charge = Number.isFinite(rawCharge) ? Math.max(Math.round(rawCharge * 100) / 100, 0) : 0;
+    const current = byHelperId.get(helperId) || { helperId, earnings: 0, jobs: 0 };
+
+    byHelperId.set(helperId, {
+      helperId,
+      earnings: Math.round((current.earnings + charge) * 100) / 100,
+      jobs: current.jobs + 1,
+    });
+  }
+
+  return [...byHelperId.values()];
+};
+
+// Labour earnings. Helper.total_earnings/total_jobs existed as fields with no
+// writer because bookings never named a helper; this is the only writer, and it
+// runs inside the ride-settlement transaction so it shares its atomicity.
+const settleHelperEarningsForRide = async ({ ride, session }) => {
+  const increments = buildHelperEarningIncrements(ride);
+
+  if (!increments.length) {
+    return null;
+  }
+
+  await Promise.all(
+    increments.map(({ helperId, earnings, jobs }) =>
+      Helper.updateOne({ _id: helperId }, { $inc: { total_earnings: earnings, total_jobs: jobs } }, { session }),
+    ),
+  );
+
+  ride.helpersSettledAt = new Date();
+  await ride.save({ session });
+
+  return {
+    helpers: increments.length,
+    total: increments.reduce((sum, item) => sum + item.earnings, 0),
+  };
+};
+
 export const settleCompletedRideWallet = async ({ rideId }) => {
   const session = await mongoose.startSession();
 
@@ -459,6 +517,7 @@ export const settleCompletedRideWallet = async ({ rideId }) => {
     // Fleet-owner settlement. admin_commission_for_owner was fully configurable
     // and never collected — no owner settlement code existed at all.
     await settleOwnerCommissionForRide({ ride, fare, session });
+    await settleHelperEarningsForRide({ ride, session });
 
     if (!amount) {
       await session.commitTransaction();

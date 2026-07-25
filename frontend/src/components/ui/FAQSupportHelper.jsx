@@ -155,7 +155,7 @@ export const FAQSupportHelper = () => {
                     <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-[11px] font-medium leading-relaxed ${
                       msg.sender === 'user'
                         ? 'bg-slate-800 text-slate-100 rounded-tr-none'
-                        : 'bg-[#FFB300] text-slate-950 font-semibold rounded-tl-none'
+                        : 'bg-[#E85D04] text-slate-950 font-semibold rounded-tl-none'
                     }`}>
                       <p>{msg.text}</p>
                     </div>

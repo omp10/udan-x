@@ -436,7 +436,7 @@ const LocationMapSection = () => {
                 }}
                 className="relative flex flex-col items-center -translate-y-1/2"
               >
-                <div className="absolute -top-10 bg-[#FFB300] text-slate-950 text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-white/20 select-none whitespace-nowrap">
+                <div className="absolute -top-10 bg-[#E85D04] text-slate-950 text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-white/20 select-none whitespace-nowrap">
                   Pickup point
                 </div>
 

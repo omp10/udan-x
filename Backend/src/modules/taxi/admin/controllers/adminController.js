@@ -8,6 +8,7 @@ import { BusBooking } from '../../user/models/BusBooking.js';
 import { BusService } from '../models/BusService.js';
 import { BusSeatHold } from '../../user/models/BusSeatHold.js';
 import { getPublicActivePaymentGateway } from '../../services/paymentGatewayService.js';
+import { getParcelProofOfDelivery } from '../../services/rideService.js';
 import { getOrLoadCachedValue } from '../../../../utils/cache.js';
 
 const PUBLIC_BOOTSTRAP_CACHE_TTL_MS = 30_000;
@@ -506,6 +507,40 @@ export const rejectDriverWithdrawalRequest = asyncHandler(async (req, res) =>
   ok(res, await adminService.rejectDriverWithdrawalRequest(req.params.requestId)),
 );
 
+export const getOwnerWithdrawalSummaries = asyncHandler(async (req, res) =>
+  ok(res, await adminService.listOwnerWithdrawalSummaries(req.query)),
+);
+
+export const getOwnerWithdrawals = asyncHandler(async (req, res) =>
+  ok(
+    res,
+    await adminService.listOwnerWithdrawals({
+      ownerId: req.params.id,
+      page: req.query.page,
+      limit: req.query.limit,
+    }),
+  ),
+);
+
+export const getOwnerWithdrawalContextByRequestId = asyncHandler(async (req, res) =>
+  ok(
+    res,
+    await adminService.getOwnerWithdrawalContextByRequestId({
+      requestId: req.params.requestId,
+      page: req.query.page,
+      limit: req.query.limit,
+    }),
+  ),
+);
+
+export const approveOwnerWithdrawalRequest = asyncHandler(async (req, res) =>
+  ok(res, await adminService.approveOwnerWithdrawalRequest(req.params.requestId, req.auth?.sub)),
+);
+
+export const rejectOwnerWithdrawalRequest = asyncHandler(async (req, res) =>
+  ok(res, await adminService.rejectOwnerWithdrawalRequest(req.params.requestId, req.auth?.sub)),
+);
+
 
 export const getDeletedDrivers = asyncHandler(async (req, res) =>
   ok(res, await adminService.listDeletedDrivers(req.query)),
@@ -695,6 +730,9 @@ export const getRideRequests = asyncHandler(async (req, res) =>
 );
 export const getDeliveries = asyncHandler(async (req, res) =>
   ok(res, await adminService.listDeliveries(req.query)),
+);
+export const getDeliveryProofOfDelivery = asyncHandler(async (req, res) =>
+  ok(res, await getParcelProofOfDelivery(req.params.id)),
 );
 export const getIntercityTrips = asyncHandler(async (req, res) =>
   ok(res, await adminService.listIntercityTrips(req.query)),
@@ -1430,6 +1468,11 @@ export const getHelpers = asyncHandler(async (req, res) =>
       availableOnly: String(req.query.available_only || '') === '1',
     }),
   ),
+);
+// Per-helper earnings, job counts and recent jobs. Helper.total_earnings had no
+// reader (and no writer) until labour assignment landed.
+export const getHelperEarnings = asyncHandler(async (req, res) =>
+  res.json(await goodsLogisticsService.getHelperEarningsReport({ recentLimit: req.query.recent_limit })),
 );
 export const createHelper = asyncHandler(async (req, res) =>
   ok(res, await goodsLogisticsService.createHelper(req.body)),

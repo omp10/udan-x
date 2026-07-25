@@ -21,7 +21,7 @@ const liveFeeds = [
 ];
 
 const feedTemplates = [
-  { name: 'Sunita L.', role: 'Field Sales Executive', status: 'Resume Screened', dotColor: 'bg-[#FFB300]' },
+  { name: 'Sunita L.', role: 'Field Sales Executive', status: 'Resume Screened', dotColor: 'bg-[#E85D04]' },
   { name: 'Rohan D.', role: 'Field Sales Manager', status: 'Screening Round', dotColor: 'bg-purple-400' },
   { name: 'Ananya S.', role: 'Field Sales Executive', status: 'Offer Accepted', dotColor: 'bg-emerald-500' }
 ];
@@ -98,7 +98,7 @@ export const CareersDashboardHelper = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1 text-xs">
-          <div className="h-2 w-2 rounded-full bg-[#FFB300] animate-ping"></div>
+          <div className="h-2 w-2 rounded-full bg-[#E85D04] animate-ping"></div>
           <span className="text-[11px] font-bold text-slate-300">Recruiting Live</span>
         </div>
       </div>
@@ -112,7 +112,7 @@ export const CareersDashboardHelper = () => {
           <div>
             <div className="flex items-center justify-between mb-3 border-b border-slate-800/50 pb-2">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5 font-sans">
-                <Sparkles size={12} className="text-[#FFB300]" /> Open Opportunities
+                <Sparkles size={12} className="text-[#E85D04]" /> Open Opportunities
               </span>
               <span className="text-[9px] font-extrabold text-slate-500">Pick a role to view info</span>
             </div>
@@ -152,7 +152,7 @@ export const CareersDashboardHelper = () => {
                     <span className="text-[8px] font-black uppercase tracking-wider bg-slate-900 text-slate-300 px-2 py-0.5 rounded border border-slate-800">
                       {currentJob.type}
                     </span>
-                    <span className="text-[8px] font-black uppercase tracking-wider bg-[#FFB300]/10 text-[#FFB300] border border-[#FFB300]/20 px-2 py-0.5 rounded">
+                    <span className="text-[8px] font-black uppercase tracking-wider bg-[#E85D04]/10 text-[#E85D04] border border-[#E85D04]/20 px-2 py-0.5 rounded">
                       CTC: {currentJob.salary}
                     </span>
                   </div>
@@ -189,7 +189,7 @@ export const CareersDashboardHelper = () => {
                   <button 
                     type="submit"
                     disabled={submitting}
-                    className="bg-[#FFB300] hover:bg-[#e09e00] text-slate-950 font-black text-[11px] uppercase tracking-wider py-2.5 px-4 rounded-xl transition shrink-0 active:scale-97 flex items-center gap-1.5"
+                    className="bg-[#E85D04] hover:bg-[#e09e00] text-slate-950 font-black text-[11px] uppercase tracking-wider py-2.5 px-4 rounded-xl transition shrink-0 active:scale-97 flex items-center gap-1.5"
                   >
                     {submitting ? 'Applying...' : 'Apply Now'} <Send size={12} />
                   </button>
@@ -230,7 +230,7 @@ export const CareersDashboardHelper = () => {
           {/* Key telemetry stats */}
           <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col justify-between">
             <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5 mb-3 font-sans">
-              <Star size={12} className="text-[#FFB300]" /> Pipeline Telemetry
+              <Star size={12} className="text-[#E85D04]" /> Pipeline Telemetry
             </span>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
@@ -248,7 +248,7 @@ export const CareersDashboardHelper = () => {
           <div className="flex-1 bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col overflow-hidden min-h-[160px]">
             <div className="flex items-center justify-between mb-3 border-b border-slate-800/50 pb-2">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5 font-sans">
-                <Users size={12} className="text-[#FFB300]" /> Live Application log
+                <Users size={12} className="text-[#E85D04]" /> Live Application log
               </span>
               <span className="text-[9px] text-slate-500 font-bold">Auto updates active</span>
             </div>

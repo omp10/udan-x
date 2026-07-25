@@ -7,10 +7,18 @@ import { Owner } from '../admin/models/Owner.js';
 import { OwnerWalletTransaction } from '../admin/models/OwnerWalletTransaction.js';
 import { SubscriptionPlan } from '../admin/models/SubscriptionPlan.js';
 import { AdminBusinessSetting } from '../admin/models/AdminBusinessSetting.js';
+import { Ride } from '../user/models/Ride.js';
+import { RIDE_STATUS } from '../constants/index.js';
 
 const PARTNER_AUDIENCES = ['driver', 'owner'];
 const BILLING_CYCLES = ['monthly', 'quarterly', 'yearly', 'custom'];
 const COVERAGE_SCOPES = ['individual', 'vehicle', 'fleet'];
+export const PLAN_TIERS = ['basic', 'standard', 'business', 'premium'];
+
+export const normalizeTier = (value, fallback = 'basic') => {
+  const normalized = String(value || fallback).trim().toLowerCase();
+  return PLAN_TIERS.includes(normalized) ? normalized : fallback;
+};
 
 const normalizeAudience = (value, fallback = 'driver') => {
   const normalized = String(value || fallback).trim().toLowerCase();
@@ -72,6 +80,7 @@ const normalizePlanPayload = (payload = {}, fallbackAudience = 'driver') => {
 
   return {
     audience,
+    tier: normalizeTier(payload.tier),
     name: String(payload.name || '').trim(),
     description: String(payload.description || '').trim(),
     amount: Math.max(0, toMoney(payload.amount, 0)),
@@ -101,6 +110,7 @@ const normalizePlanPayload = (payload = {}, fallbackAudience = 'driver') => {
 export const serializePartnerPlan = (plan = {}) => ({
   id: String(plan._id || plan.id || ''),
   audience: normalizeAudience(plan.audience),
+  tier: normalizeTier(plan.tier),
   name: String(plan.name || '').trim(),
   description: String(plan.description || '').trim(),
   amount: toMoney(plan.amount, 0),
@@ -145,6 +155,7 @@ export const serializePartnerSubscription = (item = {}) => {
   return {
     id: String(item._id || item.id || ''),
     audience: normalizeAudience(item.audience),
+    tier: normalizeTier(item.tier || item.planId?.tier),
     planId: item.planId?._id ? String(item.planId._id) : String(item.planId || ''),
     name: String(item.name || item.planId?.name || '').trim(),
     description: String(item.description || item.planId?.description || '').trim(),
@@ -296,6 +307,7 @@ export const resolveActivePartnerBenefits = async ({ audience = 'driver', entity
     subscriptionId: subscription._id,
     planId: subscription.planId || null,
     name: subscription.name || '',
+    tier: normalizeTier(subscription.tier),
     commissionDiscountPercent: Math.min(100, Math.max(0, Number(subscription.commission_discount_percent || 0))),
     priorityBooking: subscription.priority_booking === true,
     featuredListing: subscription.featured_listing === true,
@@ -304,8 +316,50 @@ export const resolveActivePartnerBenefits = async ({ audience = 'driver', entity
     bookingLimit: Math.max(0, Number(subscription.booking_limit || 0)),
     maxVehiclesCovered: Math.max(0, Number(subscription.max_vehicles_covered || 0)),
     coverageScope: subscription.coverage_scope || 'individual',
+    // The allowance window. A renewal moves lastRenewedAt forward, which resets
+    // the count without any extra bookkeeping.
+    periodStartedAt: subscription.lastRenewedAt || subscription.startedAt || subscription.purchasedAt || null,
     expiresAt: subscription.expiresAt || null,
   };
+};
+
+// bookingLimit of 0 means unlimited. Split out from the DB work below so the
+// off-by-one (limit 5 must allow the 5th ride, block the 6th) is unit testable.
+export const isBookingLimitReached = (bookingLimit, completedRides) => {
+  const limit = Math.max(0, Number(bookingLimit || 0));
+  return limit > 0 && Math.max(0, Number(completedRides || 0)) >= limit;
+};
+
+// Throws when a subscribed driver has already completed their plan's allowance
+// inside the current subscription period. Drivers with no subscription, or on an
+// unlimited plan, are untouched (one indexed lookup, no ride count).
+export const assertPartnerBookingLimitAvailable = async ({ driverId, session = null } = {}) => {
+  const benefits = await resolveActivePartnerBenefits({ audience: 'driver', entityId: driverId, session });
+
+  if (!benefits || benefits.bookingLimit <= 0) {
+    return benefits;
+  }
+
+  const countQuery = Ride.countDocuments({
+    driverId,
+    status: RIDE_STATUS.COMPLETED,
+    ...(benefits.periodStartedAt ? { completedAt: { $gte: new Date(benefits.periodStartedAt) } } : {}),
+  });
+
+  if (session) {
+    countQuery.session(session);
+  }
+
+  const completedRides = await countQuery;
+
+  if (isBookingLimitReached(benefits.bookingLimit, completedRides)) {
+    throw new ApiError(
+      403,
+      `Your ${benefits.tier} plan allows ${benefits.bookingLimit} rides this period and all of them are used. Renew or upgrade to accept more rides.`,
+    );
+  }
+
+  return benefits;
 };
 
 export const listPartnerSubscriptionPlans = async ({ audience = 'driver', activeOnly = false } = {}) => {
@@ -589,6 +643,7 @@ export const purchasePartnerSubscription = async ({
     audience: normalizedAudience,
     ...(normalizedAudience === 'owner' ? { ownerId: entity._id } : { driverId: entity._id }),
     planId: plan._id,
+    tier: normalizeTier(plan.tier),
     name: plan.name,
     description: plan.description,
     amount,

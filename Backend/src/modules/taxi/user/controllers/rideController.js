@@ -18,10 +18,12 @@ import {
   increaseRideBidCeiling,
   listRideBidsForUser,
   listRideHistoryForIdentity,
+  recordParcelProofOfDelivery,
   serializeRideRealtime,
   submitRideFeedback,
   updateRideLifecycle,
 } from '../../services/rideService.js';
+import { getTransportRideSettings } from '../../services/transportSettingsService.js';
 import {
   cancelRideByUser,
   emitToDriver,
@@ -411,6 +413,7 @@ export const updateRideStatus = async (req, res) => {
     nextStatus,
     paymentMethod: req.body.paymentMethod,
     otp: req.body.otp,
+    deliveryOtp: req.body.deliveryOtp,
   });
 
   try {
@@ -974,6 +977,37 @@ export const getRideAppTipSettings = async (_req, res) => {
     data: {
       settings: tipSettings,
     },
+  });
+};
+
+// Drives which proof-of-delivery steps the driver app renders. `enable_digital_signature`
+// used to be a dead admin toggle; this is the only reader.
+export const getParcelProofSettings = async (_req, res) => {
+  const settings = await getTransportRideSettings();
+
+  res.json({
+    success: true,
+    data: {
+      settings: {
+        digitalSignatureEnabled: String(settings.enable_digital_signature ?? '1') === '1',
+      },
+    },
+  });
+};
+
+export const saveParcelProofOfDelivery = async (req, res) => {
+  const ride = await recordParcelProofOfDelivery({
+    rideId: req.params.rideId,
+    driverId: req.auth.sub,
+    deliveryOtp: req.body.deliveryOtp,
+    photoUrl: req.body.photoUrl,
+    signatureUrl: req.body.signatureUrl,
+    receivedBy: req.body.receivedBy,
+  });
+
+  res.json({
+    success: true,
+    data: serializeRideRealtime(ride),
   });
 };
 

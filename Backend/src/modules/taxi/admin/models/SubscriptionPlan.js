@@ -7,6 +7,14 @@ const subscriptionPlanSchema = new mongoose.Schema({
     default: 'driver',
     index: true,
   },
+  // SOW membership tiers. Drives what the plan is marketed as; the actual
+  // entitlements still live in the benefit fields below.
+  tier: {
+    type: String,
+    enum: ['basic', 'standard', 'business', 'premium'],
+    default: 'basic',
+    index: true,
+  },
   name: String,
   description: String,
   amount: Number,

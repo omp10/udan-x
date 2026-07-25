@@ -33,6 +33,7 @@ import {
   updateWarehouse,
   deleteWarehouse,
   getHelpers,
+  getHelperEarnings,
   createHelper,
   updateHelper,
   deleteHelper,
@@ -103,6 +104,7 @@ import {
   getCountries,
   getDashboardData,
   getDeliveries,
+  getDeliveryProofOfDelivery,
   getEmployee,
   getEmployees,
   getDriver,
@@ -119,6 +121,11 @@ import {
   getDriverWithdrawalContextByRequestId,
   approveDriverWithdrawalRequest,
   rejectDriverWithdrawalRequest,
+  getOwnerWithdrawalSummaries,
+  getOwnerWithdrawals,
+  getOwnerWithdrawalContextByRequestId,
+  approveOwnerWithdrawalRequest,
+  rejectOwnerWithdrawalRequest,
   getDeletedDrivers,
   getDriverDeletionRequests,
   getFirebaseSettings,
@@ -356,6 +363,15 @@ adminRouter.get('/admin/wallet/drivers/withdrawals/request/:requestId', authenti
 adminRouter.get('/admin/wallet/drivers/:id/withdrawals', authenticate(['admin']), requireWalletAccess, getDriverWithdrawals);
 adminRouter.patch('/admin/wallet/drivers/withdrawals/:requestId/approve', authenticate(['admin']), requireWalletAccess, approveDriverWithdrawalRequest);
 adminRouter.patch('/admin/wallet/drivers/withdrawals/:requestId/reject', authenticate(['admin']), requireWalletAccess, rejectDriverWithdrawalRequest);
+
+// Fleet-owner payout requests. Same shape as the driver routes above, but the
+// amount is already held out of the owner wallet, so reject refunds and approve
+// only settles (see adminService owner withdrawal block).
+adminRouter.get('/admin/wallet/owners/withdrawals', authenticate(['admin']), requireWalletAccess, getOwnerWithdrawalSummaries);
+adminRouter.get('/admin/wallet/owners/withdrawals/request/:requestId', authenticate(['admin']), requireWalletAccess, getOwnerWithdrawalContextByRequestId);
+adminRouter.get('/admin/wallet/owners/:id/withdrawals', authenticate(['admin']), requireWalletAccess, getOwnerWithdrawals);
+adminRouter.patch('/admin/wallet/owners/withdrawals/:requestId/approve', authenticate(['admin']), requireWalletAccess, approveOwnerWithdrawalRequest);
+adminRouter.patch('/admin/wallet/owners/withdrawals/:requestId/reject', authenticate(['admin']), requireWalletAccess, rejectOwnerWithdrawalRequest);
 adminRouter.get('/admin/driver-ratings', authenticate(['admin']), getDriverRatings);
 adminRouter.get('/admin/driver-ratings/:id', authenticate(['admin']), getDriverRatingDetail);
 
@@ -466,6 +482,7 @@ adminRouter.patch('/admin/warehouses/:id', requireGoodsAccess, updateWarehouse);
 adminRouter.delete('/admin/warehouses/:id', requireGoodsAccess, deleteWarehouse);
 
 adminRouter.get('/admin/helpers', requireGoodsAccess, getHelpers);
+adminRouter.get('/admin/helpers/earnings', requireGoodsAccess, getHelperEarnings);
 adminRouter.post('/admin/helpers', requireGoodsAccess, createHelper);
 adminRouter.patch('/admin/helpers/:id', requireGoodsAccess, updateHelper);
 adminRouter.delete('/admin/helpers/:id', requireGoodsAccess, deleteHelper);
@@ -520,6 +537,7 @@ adminRouter.get('/admin/ongoing-rides', getOngoingRides);
 adminRouter.get('/admin/ride-requests', getRideRequests);
 adminRouter.delete('/admin/ongoing-rides/:id', deleteOngoingRide);
 adminRouter.get('/admin/deliveries', getDeliveries);
+adminRouter.get('/admin/deliveries/:id/proof', authenticate(['admin']), getDeliveryProofOfDelivery);
 adminRouter.get('/admin/trips', getIntercityTrips);
 
 adminRouter.get('/admin/wallet/withdrawals', getWithdrawals);

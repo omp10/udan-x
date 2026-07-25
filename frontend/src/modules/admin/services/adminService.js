@@ -99,6 +99,12 @@ export const adminService = {
 
   adjustOwnerWallet: (id, data) => api.post(`/admin/wallet/owners/${id}/adjust`, data),
   getOwnerWalletHistory: (id) => api.get(`/admin/wallet/owners/${id}/history`),
+  getOwnerWithdrawalSummaries: (params = {}) => api.get('/admin/wallet/owners/withdrawals', { params }),
+  getOwnerWithdrawals: (ownerId, params = {}) => api.get(`/admin/wallet/owners/${ownerId}/withdrawals`, { params }),
+  getOwnerWithdrawalContextByRequestId: (requestId, params = {}) =>
+    api.get(`/admin/wallet/owners/withdrawals/request/${requestId}`, { params }),
+  approveOwnerWithdrawalRequest: (requestId) => api.patch(`/admin/wallet/owners/withdrawals/${requestId}/approve`),
+  rejectOwnerWithdrawalRequest: (requestId) => api.patch(`/admin/wallet/owners/withdrawals/${requestId}/reject`),
 
   getReferralDashboard: () => api.get('/admin/referral/dashboard'),
 
@@ -139,6 +145,7 @@ export const adminService = {
   updateWarehouse: (id, data) => api.patch(`/admin/warehouses/${id}`, data),
   deleteWarehouse: (id) => api.delete(`/admin/warehouses/${id}`),
   getHelpers: (params = {}) => api.get('/admin/helpers', { params }),
+  getHelperEarnings: (params = {}) => api.get('/admin/helpers/earnings', { params }),
   createHelper: (data) => api.post('/admin/helpers', data),
   updateHelper: (id, data) => api.patch(`/admin/helpers/${id}`, data),
   deleteHelper: (id) => api.delete(`/admin/helpers/${id}`),
@@ -237,6 +244,7 @@ export const adminService = {
     api.get(`/admin/ride-requests?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
   getDeliveries: ({ page = 1, limit = 10, tab = 'all', search = '' } = {}) =>
     api.get(`/admin/deliveries?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
+  getDeliveryProof: (id) => api.get(`/admin/deliveries/${id}/proof`),
   getTrips: ({ page = 1, limit = 10, tab = 'all', search = '' } = {}) =>
     api.get(`/admin/trips?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
   deleteOngoingRide: (id) => api.delete(`/admin/ongoing-rides/${id}`),

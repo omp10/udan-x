@@ -2,7 +2,7 @@ import { ApiError } from '../../../../utils/ApiError.js';
 import { normalizePoint } from '../../../../utils/geo.js';
 import { GoodsType } from '../../admin/models/GoodsType.js';
 import { Vehicle } from '../../admin/models/Vehicle.js';
-import { resolveHelperCharge } from '../../admin/services/goodsLogisticsService.js';
+import { assignHelpersForBooking } from '../../admin/services/goodsLogisticsService.js';
 import { startDispatchFlow } from '../../services/dispatchService.js';
 import { Delivery } from '../models/Delivery.js';
 import {
@@ -189,18 +189,21 @@ export const createDeliveryRecord = async ({
     : null;
   const fareBreakdown = computeDeliveryFareBreakdown({ vehicle, pickupCoords, dropCoords });
 
-  // Helper charges come from the Helper collection, not the request body — the
-  // client used to send loadingCharge/unloadingCharge and we billed them verbatim.
-  const helperSelection = await resolveHelperCharge(parcel?.helper?.type || parcel?.helperType);
+  // Helper charges AND the assignment come from the Helper collection, not the
+  // request body — the client used to send loadingCharge/unloadingCharge and we
+  // billed them verbatim. Named people are recorded so earnings can accrue on
+  // completion; a thin roster reduces the count rather than billing phantom labour.
+  const helperSelection = await assignHelpersForBooking({
+    helperType: parcel?.helper?.type || parcel?.helperType,
+    count: parcel?.helper?.count ?? parcel?.helperCount,
+  });
   const helperPricing = {
-    type: helperSelection.helperType,
-    loadingCharge: ['loading', 'both'].includes(helperSelection.helperType)
-      ? Number(helperSelection.loadingRate || 0)
-      : 0,
-    unloadingCharge: ['unloading', 'both'].includes(helperSelection.helperType)
-      ? Number(helperSelection.unloadingRate || 0)
-      : 0,
-    totalCharge: Number(helperSelection.charge || 0),
+    type: helperSelection.type,
+    count: helperSelection.count,
+    loadingCharge: helperSelection.loadingCharge,
+    unloadingCharge: helperSelection.unloadingCharge,
+    totalCharge: helperSelection.totalCharge,
+    assigned: helperSelection.assigned,
   };
 
   const baseFare = fareBreakdown.total > 0 ? fareBreakdown.total : Number(fare || 0);

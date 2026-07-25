@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 
 const cities = [
-  { name: 'Indore', x: 280, y: 190, color: '#FFB300', active: true },
+  { name: 'Indore', x: 280, y: 190, color: '#E85D04', active: true },
   { name: 'Bhopal', x: 380, y: 170, color: '#2563EB', active: true },
   { name: 'Ujjain', x: 220, y: 150, color: '#10B981', active: true },
   { name: 'Mumbai', x: 190, y: 290, color: '#8B5CF6', active: true },
@@ -87,7 +87,7 @@ export const GlobalCommunitiesDashboard = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1 text-xs">
-          <Globe className="text-[#FFB300] animate-spin-slow" size={14} />
+          <Globe className="text-[#E85D04] animate-spin-slow" size={14} />
           <span className="text-[11px] font-bold text-slate-300">5 Regional Hubs Active</span>
         </div>
       </div>
@@ -99,7 +99,7 @@ export const GlobalCommunitiesDashboard = () => {
         <div className="lg:col-span-3 bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col relative overflow-hidden group">
           <div className="absolute top-3 left-3 z-10">
             <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5">
-              <MapPin size={10} className="text-[#FFB300]" /> Visual Routing Map
+              <MapPin size={10} className="text-[#E85D04]" /> Visual Routing Map
             </span>
           </div>
 
@@ -113,7 +113,7 @@ export const GlobalCommunitiesDashboard = () => {
                   <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(51, 65, 85, 0.15)" strokeWidth="1" />
                 </pattern>
                 <radialGradient id="mapGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#FFB300" stopOpacity="0.1" />
+                  <stop offset="0%" stopColor="#E85D04" stopOpacity="0.1" />
                   <stop offset="100%" stopColor="#1e293b" stopOpacity="0" />
                 </radialGradient>
               </defs>
@@ -121,11 +121,11 @@ export const GlobalCommunitiesDashboard = () => {
               <circle cx="300" cy="180" r="220" fill="url(#mapGlow)" />
 
               {/* Dotted Connection Routes (Animations) */}
-              <path d="M 280 190 Q 330 180 380 170" fill="none" stroke="#FFB300" strokeWidth="2" strokeDasharray="5,5" className="animate-[dash_15s_linear_infinite]" />
+              <path d="M 280 190 Q 330 180 380 170" fill="none" stroke="#E85D04" strokeWidth="2" strokeDasharray="5,5" className="animate-[dash_15s_linear_infinite]" />
               <path d="M 280 190 Q 250 170 220 150" fill="none" stroke="#10B981" strokeWidth="2" strokeDasharray="5,5" className="animate-[dash_12s_linear_infinite]" />
               <path d="M 280 190 Q 235 240 190 290" fill="none" stroke="#8B5CF6" strokeWidth="2.5" strokeDasharray="6,6" className="animate-[dash_18s_linear_infinite]" />
               <path d="M 380 170 Q 345 120 310 70" fill="none" stroke="#EC4899" strokeWidth="2" strokeDasharray="4,4" className="animate-[dash_10s_linear_infinite]" />
-              <path d="M 310 70 Q 295 130 280 190" fill="none" stroke="#FFB300" strokeWidth="2" strokeDasharray="5,5" className="animate-[dash_14s_linear_infinite]" />
+              <path d="M 310 70 Q 295 130 280 190" fill="none" stroke="#E85D04" strokeWidth="2" strokeDasharray="5,5" className="animate-[dash_14s_linear_infinite]" />
 
               {/* Pulsing City Nodes */}
               {cities.map((city) => (
@@ -144,7 +144,7 @@ export const GlobalCommunitiesDashboard = () => {
               {/* Animated Tiny Moving Vehicle Indicators */}
               <motion.circle
                 r="4.5"
-                fill="#FFB300"
+                fill="#E85D04"
                 className="stroke-white stroke-1"
                 animate={{
                   cx: [280, 310, 345, 380, 330, 280],
@@ -262,7 +262,7 @@ export const GlobalCommunitiesDashboard = () => {
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5">
                 <Activity size={12} className="text-rose-400 animate-pulse" /> Dispatch Log
               </span>
-              <span className="text-[9px] font-bold text-[#FFB300]">Streaming live</span>
+              <span className="text-[9px] font-bold text-[#E85D04]">Streaming live</span>
             </div>
 
             {/* Scrollable feed items */}

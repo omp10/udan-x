@@ -246,8 +246,8 @@ const VerifyOTP = () => {
 
 
         {/* Ambient Blobs */}
-        <div className="absolute top-[-10%] right-[-10%] w-72 h-72 rounded-full bg-[#FFB300]/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 rounded-full bg-[#FFB300]/5 blur-3xl pointer-events-none" />
+        <div className="absolute top-[-10%] right-[-10%] w-72 h-72 rounded-full bg-[#E85D04]/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 rounded-full bg-[#E85D04]/5 blur-3xl pointer-events-none" />
 
         <AnimatePresence mode="wait">
           {permissionStep === 'location' ? (
@@ -259,7 +259,7 @@ const VerifyOTP = () => {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="flex-1 flex flex-col items-center justify-center text-center space-y-8 my-auto z-10"
             >
-              <div className="w-24 h-24 bg-[#FFB300]/10 rounded-full flex items-center justify-center text-[#FFB300] shadow-xl">
+              <div className="w-24 h-24 bg-[#E85D04]/10 rounded-full flex items-center justify-center text-[#E85D04] shadow-xl">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25A7.5 7.5 0 1119.5 10.5z" />
@@ -284,7 +284,7 @@ const VerifyOTP = () => {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="flex-1 flex flex-col items-center justify-center text-center space-y-8 my-auto z-10"
             >
-              <div className="w-24 h-24 bg-[#FFB300]/10 rounded-full flex items-center justify-center text-[#FFB300] shadow-xl">
+              <div className="w-24 h-24 bg-[#E85D04]/10 rounded-full flex items-center justify-center text-[#E85D04] shadow-xl">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                 </svg>
@@ -352,7 +352,7 @@ const VerifyOTP = () => {
                 className="h-6 w-6 object-contain rounded-full bg-slate-950 p-0.5"
               />
             ) : (
-              <div className="h-6 w-6 bg-[#FFB300] rounded-full flex items-center justify-center shadow-lg">
+              <div className="h-6 w-6 bg-[#E85D04] rounded-full flex items-center justify-center shadow-lg">
                 <span className="text-[11px] font-black italic text-slate-950">{appName[0]?.toUpperCase() || 'R'}</span>
               </div>
             )}
@@ -362,7 +362,7 @@ const VerifyOTP = () => {
 
         {/* Floating Title Over Image */}
         <div className="login-hero-text space-y-1.5 pointer-events-none">
-          <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest login-accent-text bg-[#FFB300]/10 px-2.5 py-0.5 rounded-full">
+          <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest login-accent-text bg-[#E85D04]/10 px-2.5 py-0.5 rounded-full">
             Security Verification
           </span>
           <h1 className="text-[28px] font-black leading-[1.15] tracking-tight uppercase text-white">

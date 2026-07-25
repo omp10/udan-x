@@ -31,6 +31,7 @@ const DriverSubscriptionCreate = () => {
   const [vehicleTypes, setVehicleTypes] = useState([]);
   const [formData, setFormData] = useState({
     audience: location.state?.audience || 'driver',
+    tier: 'basic',
     name: '',
     description: '',
     amount: '',
@@ -141,6 +142,20 @@ const DriverSubscriptionCreate = () => {
                 >
                   <option value="driver">Driver plan</option>
                   <option value="owner">Fleet owner plan</option>
+                </select>
+              </div>
+
+              <div className="col-span-2">
+                <label className={labelClass}>Membership Tier *</label>
+                <select
+                  value={formData.tier}
+                  onChange={(e) => setFormData({...formData, tier: e.target.value})}
+                  className={inputClass}
+                >
+                  <option value="basic">Basic</option>
+                  <option value="standard">Standard</option>
+                  <option value="business">Business</option>
+                  <option value="premium">Premium</option>
                 </select>
               </div>
 

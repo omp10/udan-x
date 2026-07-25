@@ -381,7 +381,7 @@ body {
   --user-text-secondary: #b8c2d6;
   --user-text-muted: #7d8aa5;
   --user-border: rgba(255,255,255,0.12);
-  --user-accent: #ffc400;
+  --user-accent: #E85D04;
 }
 
 /* 3. Color Schemes for Light Mode */
@@ -393,7 +393,7 @@ body {
   --user-text-secondary: #334155;
   --user-text-muted: #64748b;
   --user-border: rgba(15,23,42,0.12);
-  --user-accent: #ffc400;
+  --user-accent: #E85D04;
 }
 
 /* 4. Adaptive Utility Class Mappings inside User App */
@@ -495,7 +495,7 @@ body {
 .user-app-theme .text-primary,
 .user-app-theme .text-amber-500,
 .user-app-theme .text-orange-500,
-.user-app-theme .text-\[\#FFB300\],
+.user-app-theme .text-\[\#E85D04\],
 .user-app-theme .text-yellow-400,
 .user-app-theme .text-yellow-500 {
   color: var(--user-accent) !important;
@@ -504,7 +504,7 @@ body {
 .user-app-theme .bg-primary,
 .user-app-theme .bg-orange-500,
 .user-app-theme .bg-amber-500,
-.user-app-theme .bg-\[\#FFB300\],
+.user-app-theme .bg-\[\#E85D04\],
 .user-app-theme .bg-yellow-400,
 .user-app-theme .bg-yellow-500 {
   background-color: var(--user-accent) !important;
@@ -751,13 +751,13 @@ body {
   font-weight: 800;
   margin-top: 40px;
   transition: all 0.25s ease;
-  box-shadow: 0 8px 24px rgba(255, 196, 0, 0.2) !important;
+  box-shadow: 0 8px 24px rgba(232, 93, 4, 0.2) !important;
 }
 
 .login-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(255, 196, 0, 0.35) !important;
-  background: #ffc400 !important;
+  box-shadow: 0 12px 28px rgba(232, 93, 4, 0.35) !important;
+  background: #E85D04 !important;
 }
 
 .login-button:active:not(:disabled) {
@@ -807,7 +807,7 @@ body {
 .otp-input-field:focus {
   border-color: var(--user-accent) !important;
   background-color: var(--user-card-bg) !important;
-  box-shadow: 0 0 12px rgba(255, 196, 0, 0.2) !important;
+  box-shadow: 0 0 12px rgba(232, 93, 4, 0.2) !important;
 }
 
 /* Theme Toggle Button Style */
@@ -866,9 +866,9 @@ body {
   --user-text-primary: #FFFFFF;
   --user-text-secondary: #CBD5E1;
   --user-border: rgba(255,255,255,0.10);
-  --user-accent: #FFC400;
+  --user-accent: #E85D04;
   --user-profile-header-bg: #090d16;
-  --user-profile-header-gradient: linear-gradient(180deg, rgba(255, 196, 0, 0.06) 0%, rgba(15, 23, 42, 1) 100%);
+  --user-profile-header-gradient: linear-gradient(180deg, rgba(232, 93, 4, 0.06) 0%, rgba(15, 23, 42, 1) 100%);
 }
 
 .user-app-theme.light,
@@ -880,7 +880,7 @@ body {
   --user-text-primary: #0B1220;
   --user-text-secondary: #64748B;
   --user-border: rgba(15,23,42,0.10);
-  --user-accent: #FFC400;
+  --user-accent: #E85D04;
   --user-profile-header-bg: #FFFFFF;
   --user-profile-header-gradient: linear-gradient(180deg, rgba(238, 242, 255, 0.5) 0%, rgba(248, 250, 252, 0) 100%);
 }
@@ -894,9 +894,9 @@ body {
   --user-text-primary: #FFFFFF;
   --user-text-secondary: #CBD5E1;
   --user-border: rgba(255,255,255,0.12);
-  --user-accent: #FFC400;
+  --user-accent: #E85D04;
   --user-profile-header-bg: #090d16;
-  --user-profile-header-gradient: linear-gradient(180deg, rgba(255, 196, 0, 0.06) 0%, rgba(5, 7, 13, 1) 100%);
+  --user-profile-header-gradient: linear-gradient(180deg, rgba(232, 93, 4, 0.06) 0%, rgba(5, 7, 13, 1) 100%);
 }
 
 /* Theme variable mapping utilities */
@@ -936,7 +936,7 @@ body {
 .user-app-theme.dark .shortcut-image-bg,
 .user-app-theme .dark .shortcut-image-bg,
 .user-app-theme[class*="dark"] .shortcut-image-bg {
-  background: linear-gradient(135deg, rgba(255,196,0,0.18), rgba(255,255,255,0.08));
+  background: linear-gradient(135deg, rgba(232,93,4,0.18), rgba(255,255,255,0.08));
 }
 
 .user-bottom-nav {
@@ -1046,7 +1046,9 @@ html, body, #root {
   width: 100% !important;
   max-width: 430px !important;
   height: 85vh !important;
-  background: var(--user-bg) !important;
+  /* Background comes from the design-system `bg-surface` utility on the sheet
+     itself (Home.jsx) — the old `var(--user-bg) !important` here would win over
+     it and repaint the sheet with the page background. */
   border-radius: 36px 36px 0 0 !important;
   z-index: 9999 !important;
   overflow-y: auto !important;
@@ -1125,7 +1127,7 @@ html, body, #root {
 
 .promo-dots button.active {
   width: 18px;
-  background: #FFC400;
+  background: #E85D04;
 }
 
 /* Home page spacing and layout alignment rules */

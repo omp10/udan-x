@@ -1,16 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Search, User, Wallet } from 'lucide-react';
+import { Check, Loader2, Search, User, Wallet, X } from 'lucide-react';
 import { useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 import AdminPageHeader from '../../components/ui/AdminPageHeader';
 import { adminCardClass, adminInputClass } from '../../components/ui/adminUi';
+import { adminService } from '../../services/adminService';
 
 const statusPillClass = (status) => {
   const normalized = String(status || '').toLowerCase();
-  if (normalized === 'processed' || normalized === 'approved') {
+  if (['processed', 'approved', 'completed', 'paid'].includes(normalized)) {
     return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   }
-  if (normalized === 'rejected' || normalized === 'failed') {
+  if (['rejected', 'cancelled', 'failed'].includes(normalized)) {
     return 'bg-red-50 text-red-700 border-red-200';
   }
   return 'bg-amber-50 text-amber-700 border-amber-200';
@@ -23,44 +25,40 @@ const WithdrawalRequestOwnerDetail = () => {
   const [history, setHistory] = useState([]);
   const [owner, setOwner] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [actioningId, setActioningId] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [query, setQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem('adminToken');
-        const res = await fetch(
-          `${globalThis.__LEGACY_BACKEND_ORIGIN__}/api/v1/admin/wallet/owners/${id}/withdrawals?limit=${itemsPerPage}`,
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          },
-        );
+        const data = await adminService.getOwnerWithdrawals(id, { limit: itemsPerPage });
 
-        const data = await res.json();
         if (data.success) {
           setOwner(data.data?.owner ?? null);
-          const mapped = (data.data?.results || []).map((withdrawal) => ({
-            id: withdrawal._id,
-            date: new Date(withdrawal.createdAt).toLocaleDateString('en-GB', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            }),
-            time: new Date(withdrawal.createdAt).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            amount: `${withdrawal.requested_currency || 'INR'} ${withdrawal.amount}`,
-            status: withdrawal.status,
-          }));
-          setHistory(mapped);
+          setHistory(
+            (data.data?.results || []).map((withdrawal) => ({
+              id: withdrawal._id,
+              date: new Date(withdrawal.createdAt).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              }),
+              time: new Date(withdrawal.createdAt).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              amount: `${withdrawal.requested_currency || 'INR'} ${withdrawal.amount}`,
+              status: withdrawal.status,
+            })),
+          );
         } else {
           setOwner(null);
           setHistory([]);
         }
       } catch (err) {
-        console.error('Fetch error:', err);
+        toast.error(err?.message || 'Failed to load owner withdrawals');
         setOwner(null);
         setHistory([]);
       } finally {
@@ -69,7 +67,27 @@ const WithdrawalRequestOwnerDetail = () => {
     };
 
     fetchData();
-  }, [id, itemsPerPage]);
+  }, [id, itemsPerPage, reloadKey]);
+
+  // Reject refunds the held amount back to the owner wallet, so the whole card is
+  // reloaded (via reloadKey) afterwards to show the new balance and status.
+  const handleAction = async (requestId, action) => {
+    setActioningId(requestId);
+    try {
+      if (action === 'approve') {
+        await adminService.approveOwnerWithdrawalRequest(requestId);
+        toast.success('Payout marked as paid');
+      } else {
+        await adminService.rejectOwnerWithdrawalRequest(requestId);
+        toast.success('Payout rejected and amount refunded');
+      }
+      setReloadKey((current) => current + 1);
+    } catch (err) {
+      toast.error(err?.message || `Failed to ${action} payout request`);
+    } finally {
+      setActioningId('');
+    }
+  };
 
   const filteredHistory = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -147,9 +165,9 @@ const WithdrawalRequestOwnerDetail = () => {
                 <p className="mt-1 text-sm font-semibold text-gray-900">{filteredHistory.length}</p>
               </div>
               <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-                <p className="text-xs font-semibold text-gray-500">Processed</p>
+                <p className="text-xs font-semibold text-gray-500">Paid Out</p>
                 <p className="mt-1 text-sm font-semibold text-gray-900">
-                  {filteredHistory.filter((item) => String(item.status).toLowerCase() === 'processed').length}
+                  {filteredHistory.filter((item) => String(item.status).toLowerCase() === 'completed').length}
                 </p>
               </div>
             </div>
@@ -182,19 +200,20 @@ const WithdrawalRequestOwnerDetail = () => {
                     <th className="py-3 pr-4 text-xs font-semibold text-gray-500">Date</th>
                     <th className="py-3 pr-4 text-xs font-semibold text-gray-500">Reference</th>
                     <th className="py-3 pr-4 text-xs font-semibold text-gray-500">Amount</th>
-                    <th className="py-3 text-right text-xs font-semibold text-gray-500">Status</th>
+                    <th className="py-3 pr-4 text-right text-xs font-semibold text-gray-500">Status</th>
+                    <th className="py-3 text-right text-xs font-semibold text-gray-500">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={4} className="py-10 text-center">
+                      <td colSpan={5} className="py-10 text-center">
                         <Loader2 className="mx-auto animate-spin text-indigo-600" size={22} />
                       </td>
                     </tr>
                   ) : filteredHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-14 text-center text-sm text-gray-500">
+                      <td colSpan={5} className="py-14 text-center text-sm text-gray-500">
                         No transactions found.
                       </td>
                     </tr>
@@ -213,14 +232,40 @@ const WithdrawalRequestOwnerDetail = () => {
                             .toUpperCase()}`}</span>
                         </td>
                         <td className="py-4 pr-4 text-sm font-medium text-gray-900">{tx.amount}</td>
-                        <td className="py-4 text-right">
+                        <td className="py-4 pr-4 text-right">
                           <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${statusPillClass(
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${statusPillClass(
                               tx.status,
                             )}`}
                           >
                             {tx.status}
                           </span>
+                        </td>
+                        <td className="py-4 text-right">
+                          {String(tx.status).toLowerCase() === 'pending' ? (
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={Boolean(actioningId)}
+                                onClick={() => handleAction(tx.id, 'approve')}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                              >
+                                {actioningId === tx.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                disabled={Boolean(actioningId)}
+                                onClick={() => handleAction(tx.id, 'reject')}
+                                className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                              >
+                                <X size={13} />
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs font-medium text-gray-400">—</span>
+                          )}
                         </td>
                       </tr>
                     ))

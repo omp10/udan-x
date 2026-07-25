@@ -182,7 +182,7 @@ export const ServiceCard = React.memo(({ icon, label, description, path, loading
       onClick={handleCardClick}
       className={`relative overflow-hidden w-full h-[106px] flex items-center justify-between p-4 rounded-[24px] border text-left transition-all duration-300 group shadow-sm ${isDark
           ? 'bg-gradient-to-br from-zinc-900 to-zinc-950/90 border-zinc-850 hover:border-yellow-500/30 hover:shadow-[0_12px_24px_rgba(0,0,0,0.4)]'
-          : 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200/70 hover:border-[#FFB300]/30 hover:shadow-[0_8px_16px_rgba(15,23,42,0.04)]'
+          : 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200/70 hover:border-[#E85D04]/30 hover:shadow-[0_8px_16px_rgba(15,23,42,0.04)]'
         }`}
     >
       <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.02] to-white/[0.05] pointer-events-none" />
@@ -192,7 +192,7 @@ export const ServiceCard = React.memo(({ icon, label, description, path, loading
           }`}>
           {getDynamicSubtitle()}
         </span>
-        <span className={`text-base sm:text-[17px] font-black mt-1 leading-tight tracking-tight line-clamp-2 uppercase ${isDark ? 'text-white group-hover:text-yellow-400' : 'text-slate-900 group-hover:text-[#FFB300]'
+        <span className={`text-base sm:text-[17px] font-black mt-1 leading-tight tracking-tight line-clamp-2 uppercase ${isDark ? 'text-white group-hover:text-yellow-400' : 'text-slate-900 group-hover:text-[#E85D04]'
           }`}>
           {label}
         </span>
@@ -233,7 +233,7 @@ const ViewAllCard = React.memo(({ isDark, onClick }) => {
       onClick={onClick}
       className={`relative overflow-hidden w-full h-[106px] flex items-center justify-between p-4 rounded-[24px] border text-left transition-all duration-300 group shadow-sm ${isDark
           ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 border-zinc-700/80 hover:border-yellow-500/30 hover:shadow-[0_12px_24px_rgba(0,0,0,0.4)]'
-          : 'bg-gradient-to-br from-slate-100 to-slate-200/90 border-slate-350 hover:border-[#FFB300]/30 hover:shadow-[0_8px_16px_rgba(15,23,42,0.04)]'
+          : 'bg-gradient-to-br from-slate-100 to-slate-200/90 border-slate-350 hover:border-[#E85D04]/30 hover:shadow-[0_8px_16px_rgba(15,23,42,0.04)]'
         }`}
     >
       <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.02] to-white/[0.05] pointer-events-none" />
@@ -243,7 +243,7 @@ const ViewAllCard = React.memo(({ isDark, onClick }) => {
           }`}>
           Explore more
         </span>
-        <span className={`text-base sm:text-[17px] font-black mt-1 leading-tight tracking-tight uppercase ${isDark ? 'text-white group-hover:text-yellow-400' : 'text-slate-900 group-hover:text-[#FFB300]'
+        <span className={`text-base sm:text-[17px] font-black mt-1 leading-tight tracking-tight uppercase ${isDark ? 'text-white group-hover:text-yellow-400' : 'text-slate-900 group-hover:text-[#E85D04]'
           }`}>
           All Services
         </span>
@@ -251,7 +251,7 @@ const ViewAllCard = React.memo(({ isDark, onClick }) => {
 
       <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-105 ${isDark ? 'bg-zinc-700/60' : 'bg-slate-200'
         }`}>
-        <LayoutGrid size={24} className={isDark ? 'text-yellow-400' : 'text-[#FFB300]'} strokeWidth={2.5} />
+        <LayoutGrid size={24} className={isDark ? 'text-yellow-400' : 'text-[#E85D04]'} strokeWidth={2.5} />
       </div>
     </motion.button>
   );
@@ -301,7 +301,7 @@ const ServiceCardStretched = React.memo(({ subtitle, title, icon, path, onClick,
     <div className={`h-11 w-11 rounded-[14px] flex items-center justify-center shrink-0 ${isDark ? 'bg-zinc-800/80 border border-zinc-700/50' : 'bg-slate-200/50 border border-slate-300/30'
       }`}>
       <div className="grid grid-cols-2 gap-1 w-5.5 h-5.5">
-        <div className="w-[9px] h-[9px] rounded-[2.5px] bg-[#FFC400]" />
+        <div className="w-[9px] h-[9px] rounded-[2.5px] bg-[#E85D04]" />
         <div className="w-[9px] h-[9px] rounded-[2.5px] bg-slate-400 dark:bg-white" />
         <div className="w-[9px] h-[9px] rounded-[2.5px] bg-slate-400 dark:bg-white" />
         <div className="w-[9px] h-[9px] rounded-[2.5px] bg-slate-300 dark:bg-zinc-650" />

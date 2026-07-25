@@ -4792,7 +4792,296 @@ export const getDriverWithdrawalContextByRequestId = async ({ requestId, page = 
   });
 };
 
+/* ------------------------------------------------------------------ *
+ * Owner (fleet) withdrawal requests
+ *
+ * Owner payouts are debited from the owner wallet the moment the owner submits
+ * the request (ownerReportsController.createOwnerPayoutRequest does an atomic
+ * conditional $inc plus an OwnerWalletTransaction debit), so:
+ *   approve -> only marks the money as paid out; there is nothing left to debit.
+ *   reject  -> must put the held amount back, exactly once.
+ * The conditional `status: 'pending'` flip in both is the idempotency guard: a
+ * second call finds no pending row and never moves money twice.
+ * ------------------------------------------------------------------ */
+
+const money2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+const serializeOwnerWithdrawalRow = (item = {}) => ({
+  _id: item._id,
+  owner_id: item.owner_id || null,
+  amount: money2(item.amount),
+  requested_currency: 'INR',
+  status: item.status || 'pending',
+  payment_method: item.payment_method || '',
+  transactionId: item.transactionId || '',
+  bank_details_snapshot: {
+    accountHolderName: item.bank_details_snapshot?.accountHolderName || '',
+    upiId: item.bank_details_snapshot?.upiId || '',
+    qrCodeImage: item.bank_details_snapshot?.qrCodeImage || '',
+    accountNumber: item.bank_details_snapshot?.accountNumber || '',
+    ifsc: item.bank_details_snapshot?.ifsc || '',
+    branchName: item.bank_details_snapshot?.branchName || '',
+    updatedAt: item.bank_details_snapshot?.updatedAt || null,
+  },
+  createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
+});
+
+// Claims a pending owner request by flipping its status in one atomic update.
+// That flip is the idempotency gate for everything the callers do afterwards.
+// Throws 404/400 the same way the driver path does.
+const claimPendingOwnerWithdrawal = async (requestId, nextStatus, adminId = null) => {
+  if (!mongoose.Types.ObjectId.isValid(requestId)) {
+    throw new ApiError(404, 'Withdrawal request not found');
+  }
+
+  const request = await WithdrawalRequest.findOneAndUpdate(
+    { _id: requestId, owner_id: { $ne: null }, status: 'pending' },
+    {
+      $set: {
+        status: nextStatus,
+        actioned_by: adminId && mongoose.Types.ObjectId.isValid(adminId) ? adminId : null,
+        actioned_at: new Date(),
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (request) {
+    return request;
+  }
+
+  const existing = await WithdrawalRequest.findById(requestId).lean();
+  if (!existing || !existing.owner_id) {
+    throw new ApiError(404, 'Withdrawal request not found');
+  }
+
+  throw new ApiError(400, `Only pending withdrawal requests can be ${nextStatus === 'completed' ? 'approved' : 'rejected'}`);
+};
+
+// No wallet write here on purpose: the amount left the owner wallet when the
+// request was created, so approval is purely "we have paid this out".
+export const approveOwnerWithdrawalRequest = async (requestId, adminId = null) => {
+  const request = await claimPendingOwnerWithdrawal(requestId, 'completed', adminId);
+  const owner = await Owner.findById(request.owner_id).select('wallet').lean();
+
+  return {
+    request: serializeOwnerWithdrawalRow(request),
+    wallet: { balance: money2(owner?.wallet?.balance), currency: 'INR' },
+  };
+};
+
+export const rejectOwnerWithdrawalRequest = async (requestId, adminId = null) => {
+  const request = await claimPendingOwnerWithdrawal(requestId, 'cancelled', adminId);
+  const amount = money2(request.amount);
+
+  const refunded = await Owner.findOneAndUpdate(
+    { _id: request.owner_id },
+    { $inc: { 'wallet.balance': amount } },
+    { new: true, projection: { wallet: 1 } },
+  ).lean();
+
+  const balance = money2(refunded?.wallet?.balance);
+
+  await OwnerWalletTransaction.create({
+    ownerId: request.owner_id,
+    amount,
+    kind: 'credit',
+    title: `Payout request rejected by admin (${String(request._id).slice(-6)})`,
+    balance,
+  });
+
+  return {
+    request: serializeOwnerWithdrawalRow(request),
+    wallet: { balance, currency: 'INR' },
+  };
+};
+
+export const listOwnerWithdrawalSummaries = async ({ page = 1, limit = 50, search = '' } = {}) => {
+  const safePage = Number(page) || 1;
+  const safeLimit = Number(limit) || 50;
+  const start = (safePage - 1) * safeLimit;
+  const term = String(search || '').trim();
+
+  const match = { status: 'pending', owner_id: { $ne: null } };
+
+  if (term) {
+    const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const owners = await Owner.find({
+      $or: [{ company_name: regex }, { owner_name: regex }, { mobile: regex }, { email: regex }],
+    })
+      .select('_id')
+      .lean();
+
+    if (owners.length === 0) {
+      return {
+        results: [],
+        paginator: { current_page: safePage, per_page: safeLimit, total: 0, last_page: 1 },
+      };
+    }
+
+    match.owner_id = { $in: owners.map((owner) => owner._id) };
+  }
+
+  const groupPipeline = [
+    { $match: match },
+    {
+      $group: {
+        _id: '$owner_id',
+        pending_count: { $sum: 1 },
+        pending_amount: { $sum: '$amount' },
+        last_request_at: { $max: '$createdAt' },
+      },
+    },
+  ];
+
+  const [groups, countRows] = await Promise.all([
+    WithdrawalRequest.aggregate([
+      ...groupPipeline,
+      { $sort: { last_request_at: -1 } },
+      { $skip: start },
+      { $limit: safeLimit },
+    ]),
+    WithdrawalRequest.aggregate([...groupPipeline, { $count: 'total' }]),
+  ]);
+
+  const ownerIds = groups.map((row) => row._id).filter(Boolean);
+  const owners = await Owner.find({ _id: { $in: ownerIds } })
+    .select('company_name owner_name mobile email wallet account_no ifsc bank_name')
+    .lean();
+  const latestRequests = ownerIds.length
+    ? await WithdrawalRequest.find({ owner_id: { $in: ownerIds }, status: 'pending' })
+      .sort({ createdAt: -1 })
+      .lean()
+    : [];
+
+  const ownerById = new Map(owners.map((owner) => [String(owner._id), owner]));
+  const latestByOwnerId = new Map();
+  latestRequests.forEach((request) => {
+    const key = String(request.owner_id || '');
+    if (key && !latestByOwnerId.has(key)) {
+      latestByOwnerId.set(key, request);
+    }
+  });
+
+  return {
+    results: groups.map((row) => {
+      const owner = ownerById.get(String(row._id));
+      const latestRequest = latestByOwnerId.get(String(row._id));
+
+      return {
+        owner_id: row._id,
+        latest_request_id: latestRequest?._id || null,
+        last_request_at: row.last_request_at,
+        pending_count: Number(row.pending_count || 0),
+        pending_amount: money2(row.pending_amount),
+        owner: owner
+          ? {
+            _id: owner._id,
+            name: owner.company_name || owner.owner_name || '',
+            owner_name: owner.owner_name || '',
+            company_name: owner.company_name || '',
+            mobile: owner.mobile || '',
+            email: owner.email || '',
+            wallet_balance: money2(owner.wallet?.balance),
+            bankDetails: {
+              accountHolderName: latestRequest?.bank_details_snapshot?.accountHolderName || owner.owner_name || '',
+              accountNumber: latestRequest?.bank_details_snapshot?.accountNumber || owner.account_no || '',
+              ifsc: latestRequest?.bank_details_snapshot?.ifsc || owner.ifsc || '',
+              branchName: latestRequest?.bank_details_snapshot?.branchName || owner.bank_name || '',
+              upiId: latestRequest?.bank_details_snapshot?.upiId || '',
+              qrCodeImage: latestRequest?.bank_details_snapshot?.qrCodeImage || '',
+              updatedAt: latestRequest?.bank_details_snapshot?.updatedAt || null,
+            },
+          }
+          : null,
+      };
+    }),
+    paginator: {
+      current_page: safePage,
+      per_page: safeLimit,
+      total: Number(countRows?.[0]?.total || 0),
+      last_page: Math.max(1, Math.ceil(Number(countRows?.[0]?.total || 0) / safeLimit)),
+    },
+  };
+};
+
+export const listOwnerWithdrawals = async ({ ownerId, page = 1, limit = 50 }) => {
+  const safePage = Number(page) || 1;
+  const safeLimit = Number(limit) || 50;
+  const start = (safePage - 1) * safeLimit;
+
+  const owner = await Owner.findById(ownerId)
+    .select('company_name owner_name mobile email city wallet account_no ifsc bank_name')
+    .lean();
+
+  if (!owner) {
+    throw new ApiError(404, 'Owner not found');
+  }
+
+  const [items, total, paidRows] = await Promise.all([
+    WithdrawalRequest.find({ owner_id: owner._id }).sort({ createdAt: -1 }).skip(start).limit(safeLimit).lean(),
+    WithdrawalRequest.countDocuments({ owner_id: owner._id }),
+    WithdrawalRequest.aggregate([
+      { $match: { owner_id: owner._id, status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]),
+  ]);
+
+  return {
+    owner: {
+      _id: owner._id,
+      name: owner.company_name || owner.owner_name || '',
+      owner_name: owner.owner_name || '',
+      mobile: owner.mobile || '',
+      email: owner.email || '',
+      city: owner.city || '',
+      wallet_balance: money2(owner.wallet?.balance),
+      total_withdrawn: money2(paidRows?.[0]?.total),
+      bankDetails: {
+        accountHolderName: owner.owner_name || '',
+        accountNumber: owner.account_no || '',
+        ifsc: owner.ifsc || '',
+        branchName: owner.bank_name || '',
+      },
+    },
+    results: items.map(serializeOwnerWithdrawalRow),
+    paginator: {
+      current_page: safePage,
+      per_page: safeLimit,
+      total,
+      last_page: Math.max(1, Math.ceil(total / safeLimit)),
+    },
+  };
+};
+
+export const getOwnerWithdrawalContextByRequestId = async ({ requestId, page = 1, limit = 50 }) => {
+  const request = mongoose.Types.ObjectId.isValid(requestId)
+    ? await WithdrawalRequest.findById(requestId).lean()
+    : null;
+
+  if (!request || !request.owner_id) {
+    throw new ApiError(404, 'Withdrawal request not found');
+  }
+
+  return listOwnerWithdrawals({ ownerId: request.owner_id, page, limit });
+};
+
 export const approveDriverWithdrawalRequest = async (requestId, adminId = null) => {
+  // Owner rows carry owner_id instead of driver_id and have already been debited,
+  // so they take the owner path rather than 404ing here.
+  const target = mongoose.Types.ObjectId.isValid(requestId)
+    ? await WithdrawalRequest.findById(requestId).select('owner_id driver_id').lean()
+    : null;
+
+  if (!target) {
+    throw new ApiError(404, 'Withdrawal request not found');
+  }
+
+  if (target.owner_id) {
+    return approveOwnerWithdrawalRequest(requestId, adminId);
+  }
+
   const session = await mongoose.startSession();
 
   try {
@@ -4867,8 +5156,21 @@ export const approveDriverWithdrawalRequest = async (requestId, adminId = null) 
 };
 
 export const rejectDriverWithdrawalRequest = async (requestId) => {
-  const request = await WithdrawalRequest.findById(requestId);
-  if (!request || !request.driver_id) {
+  const request = mongoose.Types.ObjectId.isValid(requestId)
+    ? await WithdrawalRequest.findById(requestId)
+    : null;
+
+  if (!request) {
+    throw new ApiError(404, 'Withdrawal request not found');
+  }
+
+  // Owner rejections must refund the wallet hold; the driver path below never
+  // debited anything up front, so it only flips the status.
+  if (request.owner_id) {
+    return rejectOwnerWithdrawalRequest(requestId);
+  }
+
+  if (!request.driver_id) {
     throw new ApiError(404, 'Withdrawal request not found');
   }
 

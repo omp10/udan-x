@@ -99,7 +99,7 @@ export const LegalDashboardHelper = () => {
           <div>
             <div className="flex items-center justify-between mb-3 border-b border-slate-800/50 pb-2">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5 font-sans">
-                <FileText size={12} className="text-[#FFB300]" /> Active Policies
+                <FileText size={12} className="text-[#E85D04]" /> Active Policies
               </span>
               <span className="text-[9px] font-extrabold text-slate-500">Select policy tag</span>
             </div>
@@ -173,7 +173,7 @@ export const LegalDashboardHelper = () => {
                   <button 
                     type="submit"
                     disabled={submitting}
-                    className="bg-[#FFB300] hover:bg-[#e09e00] text-slate-950 font-black text-[11px] uppercase tracking-wider py-2.5 px-4 rounded-xl transition shrink-0 active:scale-97 flex items-center gap-1.5"
+                    className="bg-[#E85D04] hover:bg-[#e09e00] text-slate-950 font-black text-[11px] uppercase tracking-wider py-2.5 px-4 rounded-xl transition shrink-0 active:scale-97 flex items-center gap-1.5"
                   >
                     {submitting ? 'Verifying...' : 'Sign Agreement'} <PenTool size={12} />
                   </button>
@@ -214,7 +214,7 @@ export const LegalDashboardHelper = () => {
           {/* Compliance Stats HUD */}
           <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col justify-between">
             <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5 mb-3 font-sans">
-              <Star size={12} className="text-[#FFB300]" /> Compliance Health
+              <Star size={12} className="text-[#E85D04]" /> Compliance Health
             </span>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
@@ -232,7 +232,7 @@ export const LegalDashboardHelper = () => {
           <div className="flex-1 bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col overflow-hidden min-h-[160px]">
             <div className="flex items-center justify-between mb-3 border-b border-slate-800/50 pb-2">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5 font-sans">
-                <Clock size={12} className="text-[#FFB300]" /> Live Audit log
+                <Clock size={12} className="text-[#E85D04]" /> Live Audit log
               </span>
               <span className="text-[9px] text-slate-500 font-bold">Telemetry active</span>
             </div>

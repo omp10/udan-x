@@ -17,6 +17,7 @@ const UserSubscriptionCreate = () => {
     duration: '',
     transport_type: 'taxi',
     vehicle_type_id: '',
+    tier: 'basic',
     benefit_type: 'limited',
     ride_limit: '',
     how_it_works: '',
@@ -110,6 +111,15 @@ const UserSubscriptionCreate = () => {
                 {vehicleTypes.map((item) => (
                   <option key={item._id} value={item._id}>{item.name}</option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-gray-500">Membership Tier</label>
+              <select className={inputClass} value={formData.tier} onChange={(e) => setFormData((p) => ({ ...p, tier: e.target.value }))}>
+                <option value="basic">Basic</option>
+                <option value="standard">Standard</option>
+                <option value="business">Business</option>
+                <option value="premium">Premium</option>
               </select>
             </div>
             <div>

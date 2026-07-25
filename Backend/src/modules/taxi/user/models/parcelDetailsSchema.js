@@ -85,9 +85,9 @@ export const parcelDetailsDefinition = {
     type: Boolean,
     default: false,
   },
-  // Loading/unloading labour. Charges are resolved server-side from the Helper
-  // collection at booking time (goodsLogisticsService.resolveHelperCharge), never
-  // taken from the client.
+  // Loading/unloading labour. Charges AND the assignment are resolved server-side
+  // from the Helper collection at booking time
+  // (goodsLogisticsService.assignHelpersForBooking), never taken from the client.
   helper: {
     type: {
       type: String,
@@ -96,9 +96,25 @@ export const parcelDetailsDefinition = {
       lowercase: true,
       trim: true,
     },
+    // How many helpers are actually coming. Equals assigned.length; the customer
+    // asks for a count and the server may hand back fewer if the roster is thin.
+    count: { type: Number, default: 0, min: 0 },
+    // Booking totals across all assigned helpers, not per-person rates.
     loadingCharge: { type: Number, default: 0, min: 0 },
     unloadingCharge: { type: Number, default: 0, min: 0 },
     totalCharge: { type: Number, default: 0, min: 0 },
+    // Who is coming, snapshotted so the record survives a later Helper edit or
+    // delete. `charge` is what this person earns when the delivery completes.
+    assigned: [
+      {
+        _id: false,
+        helperId: { type: String, default: '' },
+        name: { type: String, default: '', trim: true },
+        phone: { type: String, default: '', trim: true },
+        helperType: { type: String, default: 'both', lowercase: true, trim: true },
+        charge: { type: Number, default: 0, min: 0 },
+      },
+    ],
   },
   warehouse: {
     pickupId: { type: String, default: '' },

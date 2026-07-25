@@ -14,7 +14,10 @@ import {
   Receipt,
   Clock, 
   ShieldCheck, 
-  ChevronRight
+  ChevronRight,
+  Camera,
+  PenLine,
+  Users
 } from 'lucide-react';
 import { GoogleMap, OverlayView, OverlayViewF, PolylineF } from '@react-google-maps/api';
 import { HAS_VALID_GOOGLE_MAPS_KEY, useBaseGoogleMapsLoader } from '../../../admin/utils/googleMaps';
@@ -291,6 +294,13 @@ const ParcelTracking = () => {
   }, [activeDestination, driverPosition, rideRealtime?.driverLocation?.heading, routePath]);
   const fare = rideRealtime?.fare || state.fare || 45;
   const otp = String(rideRealtime?.otp || state.otp || '');
+  // Two PINs on a parcel: `otp` starts the trip (sender), `deliveryOtp` releases the
+  // goods at the drop and has to be read out to the receiver.
+  const parcelDetails = rideRealtime?.parcel || state.parcel || {};
+  const deliveryOtp = String(parcelDetails.deliveryOtp || '');
+  const proofOfDelivery = parcelDetails.proofOfDelivery || null;
+  // Named labour assigned at booking time (deliveryService -> assignHelpersForBooking).
+  const assignedHelpers = Array.isArray(parcelDetails.helper?.assigned) ? parcelDetails.helper.assigned : [];
   const completedAt = rideRealtime?.completedAt || state.completedAt || Date.now();
   const isDeliveryCompleted = COMPLETED_TRACKING_STATUSES.has(tripStatus);
   const tipsEnabled = String(tipSettings.enable_tips || '1') === '1';
@@ -385,6 +395,7 @@ const ParcelTracking = () => {
           vehicleIconType: payload?.vehicleIconType || latestStateRef.current.vehicleIconType || '',
           vehicleIconUrl: payload?.vehicleIconUrl || latestStateRef.current.vehicleIconUrl || '',
           otp: payload?.otp || latestStateRef.current.otp || '',
+          parcel: payload?.parcel || latestRideRealtimeRef.current?.parcel || latestStateRef.current.parcel || null,
           completedAt: payload?.completedAt || latestStateRef.current.completedAt || null,
           feedback: payload?.feedback || latestStateRef.current.feedback || null,
           driver: mergedDriver,
@@ -531,6 +542,7 @@ const ParcelTracking = () => {
           vehicleIconType: payload?.vehicleIconType || prev?.vehicleIconType || latestStateRef.current.vehicleIconType || '',
           vehicleIconUrl: payload?.vehicleIconUrl || prev?.vehicleIconUrl || latestStateRef.current.vehicleIconUrl || '',
           otp: payload?.otp || prev?.otp || latestStateRef.current.otp || '',
+          parcel: payload?.parcel || prev?.parcel || latestStateRef.current.parcel || null,
           completedAt: payload?.completedAt || prev?.completedAt || Date.now(),
           feedback: payload?.feedback || prev?.feedback || null,
           driver: mergedDriver,
@@ -578,6 +590,7 @@ const ParcelTracking = () => {
         vehicleIconType: payload?.vehicleIconType || prev?.vehicleIconType || latestStateRef.current.vehicleIconType || '',
         vehicleIconUrl: payload?.vehicleIconUrl || prev?.vehicleIconUrl || latestStateRef.current.vehicleIconUrl || '',
         otp: payload?.otp || prev?.otp || latestStateRef.current.otp || '',
+        parcel: payload?.parcel || prev?.parcel || latestStateRef.current.parcel || null,
         completedAt: payload?.completedAt || prev?.completedAt || null,
         feedback: payload?.feedback || prev?.feedback || null,
         driver: mergedDriver,
@@ -692,6 +705,7 @@ const ParcelTracking = () => {
           vehicleIconType: payload.vehicleIconType || prev?.vehicleIconType || latestStateRef.current.vehicleIconType || '',
           vehicleIconUrl: payload.vehicleIconUrl || prev?.vehicleIconUrl || latestStateRef.current.vehicleIconUrl || '',
           otp: payload.otp || prev?.otp || latestStateRef.current.otp || '',
+          parcel: payload.parcel || prev?.parcel || latestStateRef.current.parcel || null,
           completedAt: payload.completedAt || prev?.completedAt || null,
           feedback: payload.feedback || prev?.feedback || null,
           driver: mergedDriver,
@@ -1058,6 +1072,48 @@ const ParcelTracking = () => {
               </div>
             </div>
 
+            {proofOfDelivery?.deliveredAt && (
+              <div className="overflow-hidden rounded-[22px] border border-white/80 bg-white/95 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+                <div className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-emerald-50 text-emerald-600">
+                    <CheckCircle2 size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-black text-slate-900">Proof of delivery</p>
+                    <p className="truncate text-[10px] font-bold text-slate-400">
+                      Received by {proofOfDelivery.receivedBy || parcelDetails.receiverName || 'receiver'}
+                      {' · '}
+                      {new Date(proofOfDelivery.deliveredAt).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true,
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 px-4 py-4">
+                  {proofOfDelivery.photoUrl ? (
+                    <a href={proofOfDelivery.photoUrl} target="_blank" rel="noreferrer" className="block">
+                      <img src={proofOfDelivery.photoUrl} alt="Delivered parcel" className="h-28 w-full rounded-[14px] border border-slate-100 object-cover" />
+                      <p className="mt-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                        <Camera size={11} /> Delivery photo
+                      </p>
+                    </a>
+                  ) : null}
+                  {proofOfDelivery.signatureUrl ? (
+                    <div>
+                      <img src={proofOfDelivery.signatureUrl} alt="Receiver signature" className="h-28 w-full rounded-[14px] border border-slate-100 bg-white object-contain p-2" />
+                      <p className="mt-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                        <PenLine size={11} /> Signature
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-[20px] border border-white/80 bg-white/95 px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
               {isFeedbackSubmitted ? (
                 <div className="text-center">
@@ -1184,13 +1240,63 @@ const ParcelTracking = () => {
             </div>
 
             {/* OTP Display */}
-            {otp && (
-              <div className="bg-slate-100 border border-slate-200 rounded-2xl px-4 py-3 flex flex-col items-center">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">OTP</span>
-                <span className="text-xl font-black text-slate-900 leading-none">{otp}</span>
-              </div>
-            )}
+            <div className="flex shrink-0 flex-col items-stretch gap-2">
+              {otp && (
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl px-4 py-2.5 flex flex-col items-center">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Pickup OTP</span>
+                  <span className="text-xl font-black text-slate-900 leading-none">{otp}</span>
+                </div>
+              )}
+              {deliveryOtp && (
+                <div className="bg-orange-50 border border-orange-200 rounded-2xl px-4 py-2.5 flex flex-col items-center">
+                  <span className="text-[9px] font-black text-orange-600 uppercase tracking-widest mb-0.5">Delivery OTP</span>
+                  <span className="text-xl font-black text-slate-900 leading-none">{deliveryOtp}</span>
+                </div>
+              )}
+            </div>
           </div>
+
+          {deliveryOtp && (
+            <p className="-mt-2 text-[11px] font-bold text-slate-500">
+              Share the <span className="font-black text-orange-600">Delivery OTP</span> with the receiver - the driver needs it to hand over the parcel.
+            </p>
+          )}
+
+          {/* Assigned loading/unloading crew — the customer needs to know who is
+              turning up, and the charge each person is being paid. */}
+          {assignedHelpers.length > 0 && (
+            <div className="rounded-[20px] border border-amber-100 bg-amber-50/50 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Users size={14} className="text-amber-600" strokeWidth={3} />
+                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                  {assignedHelpers.length} Helper{assignedHelpers.length > 1 ? 's' : ''} Assigned
+                  {parcelDetails.helper?.totalCharge ? ` • ₹${parcelDetails.helper.totalCharge}` : ''}
+                </p>
+              </div>
+              <div className="space-y-2">
+                {assignedHelpers.map((helper, index) => (
+                  <div key={helper.helperId || index} className="flex items-center gap-3 rounded-2xl bg-white px-3 py-2.5 border border-amber-100/60">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-black text-gray-900 leading-tight">{helper.name || 'Helper'}</p>
+                      <p className="text-[11px] font-bold text-gray-400 capitalize">
+                        {helper.helperType === 'both' ? 'Loading & unloading' : `${helper.helperType || 'loading'} only`}
+                        {helper.charge ? ` • ₹${helper.charge}` : ''}
+                      </p>
+                    </div>
+                    {helper.phone && (
+                      <a
+                        href={`tel:${helper.phone}`}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white"
+                        aria-label={`Call ${helper.name || 'helper'}`}
+                      >
+                        <Phone size={14} strokeWidth={3} />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Action Grid */}
           <div className="grid grid-cols-4 gap-3">

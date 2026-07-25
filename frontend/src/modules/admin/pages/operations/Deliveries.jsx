@@ -89,6 +89,65 @@ const handlePrintInvoice = (delivery) => {
   printWindow.document.close();
 };
 
+// Keyed on deliveryId by the caller, so `proof === undefined` is the loading state
+// and no loading flag has to be reset inside the effect.
+const DeliveryProofSection = ({ deliveryId }) => {
+  const [proof, setProof] = useState(undefined);
+
+  useEffect(() => {
+    if (!deliveryId) return undefined;
+
+    let active = true;
+    adminService.getDeliveryProof(deliveryId)
+      .then((response) => {
+        if (active) setProof(response?.data?.data || response?.data || null);
+      })
+      .catch(() => { if (active) setProof(null); });
+
+    return () => { active = false; };
+  }, [deliveryId]);
+
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400 mb-2">Proof of Delivery</p>
+      {proof === undefined ? (
+        <LoaderCircle size={16} className="animate-spin text-yellow-400" />
+      ) : !proof?.deliveredAt ? (
+        <p className="text-[13px] font-medium text-gray-400">Not captured yet.</p>
+      ) : (
+        <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400 mb-0.5">Received By</p>
+              <p className="text-[13px] font-bold text-gray-900">{proof.receivedBy || proof.receiverName || 'Receiver'}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400 mb-0.5">Delivered At</p>
+              <p className="text-[13px] font-bold text-gray-900">{formatDate(proof.deliveredAt)}</p>
+            </div>
+          </div>
+          {(proof.photoUrl || proof.signatureUrl) && (
+            <div className="grid grid-cols-2 gap-3">
+              {proof.photoUrl ? (
+                <a href={proof.photoUrl} target="_blank" rel="noreferrer">
+                  <img src={proof.photoUrl} alt="Delivered parcel" className="h-28 w-full rounded-lg border border-gray-200 object-cover" />
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Delivery photo</p>
+                </a>
+              ) : null}
+              {proof.signatureUrl ? (
+                <a href={proof.signatureUrl} target="_blank" rel="noreferrer">
+                  <img src={proof.signatureUrl} alt="Receiver signature" className="h-28 w-full rounded-lg border border-gray-200 bg-white object-contain p-2" />
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Signature</p>
+                </a>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const DeliveryDetailsDrawer = ({ delivery, onClose }) => {
   if (!delivery) return null;
   return (
@@ -151,7 +210,9 @@ const DeliveryDetailsDrawer = ({ delivery, onClose }) => {
               <p className="text-[13px] font-bold text-gray-900">{delivery.distance || '-'} / {delivery.fare || '-'}</p>
             </div>
           </div>
-          
+
+          <DeliveryProofSection key={delivery.id} deliveryId={delivery.id} />
+
         </div>
         <div className="border-t border-gray-100 p-5 bg-white flex justify-end gap-3">
           <button onClick={() => handlePrintInvoice(delivery)} className="px-5 py-2 text-sm font-bold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2">
@@ -327,6 +388,10 @@ const Deliveries = () => {
     city: ''
   });
 
+  // Bumped by the Refresh button, which previously called handleNotImplemented —
+  // a function scoped to ActionMenu, so clicking it threw a ReferenceError.
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     let active = true;
     const loadDeliveries = async () => {
@@ -356,13 +421,22 @@ const Deliveries = () => {
           const cancelled = results.filter(r => r.tripStatus === 'CANCELLED').length;
           const onTrip = results.filter(r => r.tripStatus === 'ON_TRIP' || r.tripStatus === 'ONGOING').length;
           const pending = results.filter(r => r.tripStatus === 'PENDING' || r.tripStatus === 'UPCOMING').length;
+          // `today` used to be Math.floor(results.length / 2) — an invented
+          // number. Count rows actually created today instead.
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          const today = results.filter((r) => {
+            const created = new Date(r.createdAt || r.created_at || r.bookedAt || 0);
+            return !Number.isNaN(created.getTime()) && created >= startOfToday;
+          }).length;
+
           setStats({
             total: payload.paginator?.total || results.length || 0,
             completed,
             pending,
             cancelled,
             onTrip,
-            today: results.length > 0 ? Math.floor(results.length / 2) : 0, 
+            today,
           });
         }
       } catch (loadError) {
@@ -376,7 +450,7 @@ const Deliveries = () => {
     };
     loadDeliveries();
     return () => { active = false; };
-  }, [activeTab, pageSize, search, activeFilters]);
+  }, [activeTab, pageSize, search, activeFilters, reloadKey]);
 
   const applyFilters = () => {
     setActiveFilters(draftFilters);
@@ -478,8 +552,8 @@ const Deliveries = () => {
                   </span>
                 )}
               </button>
-              <button 
-                onClick={() => handleNotImplemented('Refresh')}
+              <button
+                onClick={() => setReloadKey((key) => key + 1)}
                 className="hidden sm:flex h-8 items-center justify-center px-3 rounded-md border border-gray-200 bg-white text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Refresh

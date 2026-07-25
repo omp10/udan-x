@@ -31,8 +31,8 @@ const Onboarding = () => {
 
 
       {/* Decorative Blobs for Depth */}
-      <div className="absolute top-[-10%] right-[-10%] w-72 h-72 rounded-full bg-[#FFB300]/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 rounded-full bg-[#FFB300]/5 blur-3xl pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] w-72 h-72 rounded-full bg-[#E85D04]/10 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 rounded-full bg-[#E85D04]/5 blur-3xl pointer-events-none" />
 
       {/* Centered Logo & Brand Content */}
       <motion.div
@@ -50,7 +50,7 @@ const Onboarding = () => {
             />
           </div>
         ) : (
-          <div className="h-20 w-20 bg-[#FFB300] rounded-[24px] flex items-center justify-center shadow-2xl shadow-yellow-500/20 mb-5 relative overflow-hidden">
+          <div className="h-20 w-20 bg-[#E85D04] rounded-[24px] flex items-center justify-center shadow-2xl shadow-yellow-500/20 mb-5 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-tr from-black/10 to-transparent" />
             <span className="text-3xl font-black italic text-slate-950 tracking-tighter">
               {appName[0]?.toUpperCase() || 'R'}
@@ -84,7 +84,7 @@ const Onboarding = () => {
             initial={{ left: '-100%' }}
             animate={{ left: '100%' }}
             transition={{ repeat: Infinity, duration: 1.2, ease: 'easeInOut' }}
-            className="absolute top-0 bottom-0 w-1/2 bg-[#FFB300] rounded-full"
+            className="absolute top-0 bottom-0 w-1/2 bg-[#E85D04] rounded-full"
           />
         </div>
       </div>

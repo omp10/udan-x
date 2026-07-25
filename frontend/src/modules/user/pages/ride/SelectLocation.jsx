@@ -6,6 +6,7 @@ import { GoogleMap } from '@react-google-maps/api';
 import { useAppGoogleMapsLoader, INDIA_CENTER, HAS_VALID_GOOGLE_MAPS_KEY } from '../../../admin/utils/googleMaps';
 import api from '../../../../shared/api/axiosInstance';
 import { getSavedLocation, getSavedLocationCoords, saveLocation } from '../../services/locationStore';
+import { getStopAddress, toStopAddresses, toStopCoordsMap, toStopPayload } from '../../../../shared/utils/rideStops';
 
 const LOCATION_COORDS = {
   'Pipaliyahana, Indore': [75.9048, 22.7039],
@@ -204,7 +205,11 @@ const SelectLocation = () => {
   const [drop, setDrop] = useState(() => routeState.drop || '');
   const [pickupCoords, setPickupCoords] = useState(() => routeState.pickupCoords || savedPickupCoords || getCoords(routeState.pickup || savedPickupLabel || 'Pipaliyahana, Indore'));
   const [dropCoords, setDropCoords] = useState(() => routeState.dropCoords || null);
-  const [stops, setStops] = useState(() => routeState.stops || []);          // array of stop strings
+  // Stays an array of strings so the stop inputs remain free-text; incoming state
+  // may be the {address, coordinates} shape, so normalise both ways.
+  const [stops, setStops] = useState(() => toStopAddresses(routeState.stops));
+  // index -> [lng, lat] for stops resolved via autocomplete or the map picker.
+  const [stopCoords, setStopCoords] = useState(() => toStopCoordsMap(routeState.stops));
   const [activeInput, setActiveInput] = useState(routeActiveInput); // 'pickup' | 'drop' | stopIdx
   const [showMapPicker, setShowMapPicker] = useState(Boolean(routeState.openMapPicker));
   const [mapCenter, setMapCenter] = useState(INDIA_CENTER);
@@ -554,7 +559,7 @@ const SelectLocation = () => {
     }
 
     if (typeof activeInput === 'number') {
-      const defaultStop = String(routeState.stops?.[activeInput] || '').trim();
+      const defaultStop = getStopAddress(routeState.stops?.[activeInput]);
       return trimmedQuery === defaultStop;
     }
 
@@ -839,7 +844,11 @@ const SelectLocation = () => {
         ...routeState,
         pickup: finalPickup,
         drop: finalDrop,
-        stops: stops.filter(s => s.trim().length > 0),
+        // Filtering reindexes, so pair each coord to its address rather than
+        // shipping a map keyed by the pre-filter index.
+        stops: toStopPayload(
+          stops.map((address, index) => ({ address, coordinates: stopCoords[index] || null })),
+        ),
         pickupCoords: resolvedPickupCoords,
         dropCoords: resolvedDropCoords,
         service_location_id: nextServiceLocationId,
@@ -925,6 +934,7 @@ const SelectLocation = () => {
       handleConfirmNavigate(finalAddress, selectedCoords);
     } else if (typeof activeInput === 'number') {
       updateStop(activeInput, finalAddress);
+      setStopCoordsAt(activeInput, selectedCoords);
       saveRecentLocation(finalAddress, selectedCoords);
     }
     setShowMapPicker(false);
@@ -1000,8 +1010,23 @@ const SelectLocation = () => {
   };
 
   // Update a stop value
+  // Free-text edit: the address no longer matches whatever we geocoded, so drop
+  // the stale coordinates for that index rather than sending a wrong point.
   const updateStop = (idx, val) => {
     setStops(prev => prev.map((s, i) => i === idx ? val : s));
+    setStopCoords(prev => {
+      if (!(idx in prev)) return prev;
+      const next = { ...prev };
+      delete next[idx];
+      return next;
+    });
+  };
+
+  // Called when a stop is chosen from autocomplete or the map picker, both of
+  // which already resolve real coordinates — they were previously discarded.
+  const setStopCoordsAt = (idx, coords) => {
+    if (!Array.isArray(coords) || coords.length < 2) return;
+    setStopCoords(prev => ({ ...prev, [idx]: [Number(coords[0]), Number(coords[1])] }));
   };
 
   // When a suggestion is tapped
@@ -1040,6 +1065,7 @@ const SelectLocation = () => {
       handleConfirmNavigate(finalTitle, resolvedCoords);
     } else if (typeof activeInput === 'number') {
       updateStop(activeInput, finalTitle);
+      setStopCoordsAt(activeInput, resolvedCoords);
       saveRecentLocation(finalTitle, resolvedCoords);
       // Move to next stop or drop
       if (activeInput < stops.length - 1) {
@@ -1494,8 +1520,8 @@ const SelectLocation = () => {
              </div>
            )}
            {/* Overlay overlaying the map with branding */}
-           <div className="absolute top-6 right-6 bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-lg border border-slate-100 font-black text-[#FFC400] text-[18px] tracking-tight flex items-center gap-2">
-             <MapPin className="text-[#FFC400]" size={20} fill="currentColor" /> Appzeto
+           <div className="absolute top-6 right-6 bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-lg border border-slate-100 font-black text-[#E85D04] text-[18px] tracking-tight flex items-center gap-2">
+             <MapPin className="text-[#E85D04]" size={20} fill="currentColor" /> Appzeto
            </div>
         </div>
       </div>

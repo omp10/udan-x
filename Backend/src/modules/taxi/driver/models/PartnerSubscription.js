@@ -26,6 +26,14 @@ const partnerSubscriptionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Snapshot of the plan's tier at purchase time, so a later plan edit does
+    // not rewrite what an existing subscriber bought.
+    tier: {
+      type: String,
+      enum: ['basic', 'standard', 'business', 'premium'],
+      default: 'basic',
+      index: true,
+    },
     name: {
       type: String,
       default: '',

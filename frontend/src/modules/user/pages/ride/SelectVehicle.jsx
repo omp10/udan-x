@@ -23,6 +23,7 @@ import ScootyIcon from '../../../../assets/icons/scooty.png';
 import HatchbackIcon from '../../../../assets/icons/Hatchback.png';
 import BusIcon from '../../../../assets/icons/bus.png';
 import MiniBusIcon from '../../../../assets/icons/mini_bus.png';
+import { toStopAddresses } from '../../../../shared/utils/rideStops';
 
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
 const SELECT_VEHICLE_MAP_OPTIONS = {
@@ -1187,10 +1188,9 @@ const SelectVehicle = () => {
   const drop = routeState.drop || 'Vijay Nagar, Indore';
   const pickupCoords = useMemo(() => routeState.pickupCoords || [75.9048, 22.7039], [routeState.pickupCoords]);
   const dropCoords = useMemo(() => routeState.dropCoords || [75.8937, 22.7533], [routeState.dropCoords]);
-  const stops = useMemo(
-    () => (Array.isArray(routeState.stops) ? routeState.stops : []),
-    [routeState.stops],
-  );
+  // Address strings for Google waypoints and the map preview; the full objects
+  // (with coordinates) are forwarded to the booking payload untouched.
+  const stops = useMemo(() => toStopAddresses(routeState.stops), [routeState.stops]);
   const routeServiceLocationId = routeState.service_location_id || routeState.serviceLocationId || '';
   const routeZoneId = routeState.zone_id || routeState.zoneId || '';
   const hasCompleteRouteZoneContext = Boolean(routeServiceLocationId && routeZoneId);

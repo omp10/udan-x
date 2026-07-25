@@ -1221,7 +1221,7 @@ const RentalVehicleDetail = () => {
                     onClick={() => setSelectedImage(image)}
                     className={`h-16 w-16 shrink-0 overflow-hidden rounded-2xl border transition-colors ${
                       selectedImage === image 
-                        ? isDark ? 'border-[#FFC400]' : 'border-slate-900' 
+                        ? isDark ? 'border-[#E85D04]' : 'border-slate-900' 
                         : isDark ? 'border-zinc-800 bg-[#05070D]' : 'border-slate-200 bg-white'
                     }`}
                   >

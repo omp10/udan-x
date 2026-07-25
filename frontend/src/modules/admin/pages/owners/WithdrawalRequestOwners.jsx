@@ -22,11 +22,11 @@ const formatAmount = (value, currency = 'INR') => {
 };
 
 const getOwnerName = (item) =>
-  item.owner_id?.name ||
-  item.owner_id?.owner_name ||
-  item.owner_id?.company_name ||
   item.owner?.name ||
   item.owner?.company_name ||
+  item.owner?.owner_name ||
+  item.owner_id?.name ||
+  item.owner_id?.company_name ||
   '-';
 
 const getStatusClass = (status) => {
@@ -51,15 +51,15 @@ const WithdrawalRequestOwners = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // One row per owner with pending payouts, mirroring the driver summaries page.
     const fetchWithdrawals = async () => {
       setIsLoading(true);
 
       try {
-        const response = await adminService.getWithdrawals();
+        const response = await adminService.getOwnerWithdrawalSummaries({ limit: 200 });
 
         if (response.success) {
-          const results = response.data?.results || response.data || [];
-          setRequests(results.filter((item) => item.owner_id || item.owner));
+          setRequests(response.data?.results || []);
         }
       } catch (error) {
         console.error('Owner withdrawals fetch failed:', error);
@@ -147,21 +147,22 @@ const WithdrawalRequestOwners = () => {
                     </tr>
                   ) : (
                     pagedRequests.map((item) => {
-                      const ownerId = item.owner_id?._id || item.owner_id || item.owner?._id || item._id;
-                      const status = item.status || 'requested';
+                      const ownerId = item.owner?._id || item.owner_id?._id || item.owner_id || item._id;
+                      const pendingCount = Number(item.pending_count || 0);
+                      const status = item.status || (pendingCount > 0 ? 'pending' : 'requested');
 
                       return (
-                        <tr key={item._id || ownerId} className="bg-white transition-colors hover:bg-gray-50 border-b border-gray-100">
+                        <tr key={String(ownerId)} className="bg-white transition-colors hover:bg-gray-50 border-b border-gray-100">
                           <td className="px-3 py-4 text-sm text-gray-950">
-                            {formatDate(item.createdAt || item.last_request_at)}
+                            {formatDate(item.last_request_at || item.createdAt)}
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-950">{getOwnerName(item)}</td>
                           <td className="px-3 py-4 text-sm text-gray-950">
-                            {formatAmount(item.amount || item.pending_amount, item.requested_currency || 'INR')}
+                            {formatAmount(item.pending_amount ?? item.amount)}
                           </td>
                           <td className="px-3 py-4 text-sm">
                             <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${getStatusClass(status)}`}>
-                              {status}
+                              {pendingCount > 1 ? `${status} (${pendingCount})` : status}
                             </span>
                           </td>
                           <td className="px-3 py-4">

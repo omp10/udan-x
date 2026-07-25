@@ -3,6 +3,7 @@
 // Kept out of adminService.js deliberately: that file is already 11k+ lines.
 // Same serialize/CRUD shape as the goods-type functions in there.
 import { ApiError } from '../../../../utils/ApiError.js';
+import { Ride } from '../../user/models/Ride.js';
 import { Helper } from '../models/Helper.js';
 import { Warehouse } from '../models/Warehouse.js';
 
@@ -239,41 +240,178 @@ export const deleteHelper = async (id) => {
   return { deleted: true };
 };
 
-// Resolves the charge for a helper selection at booking time so the server does
-// not trust a client-sent helperCharge. Mirrors the customer-side math in
-// SenderReceiverDetails.jsx: loading | unloading | both (loading + unloading).
-export const resolveHelperCharge = async (helperType) => {
+// -------------------------------------------------------- helper assignment
+//
+// A booking used to be priced at the MAX rate across the whole roster and
+// assigned to nobody, so total_earnings/total_jobs could never move. Now the
+// booking picks real people and is billed at THEIR rates.
+
+export const MAX_HELPERS_PER_BOOKING = 5;
+
+const HELPER_ROLES = { loading: ['loading'], unloading: ['unloading'], both: ['loading', 'unloading'] };
+
+// A 'both' request needs one person who does both jobs. Pairing a loading-only
+// with an unloading-only helper would bill two people for one seat.
+const helperCovers = (helper, roles) =>
+  roles.every((role) => helper.helper_type === 'both' || helper.helper_type === role);
+
+// toMoney (not Math.max) because Math.max(0, NaN) is NaN, not 0.
+const helperChargeFor = (helper, roles) =>
+  roles.reduce(
+    (sum, role) => sum + toMoney(role === 'loading' ? helper.loading_charge : helper.unloading_charge, 0),
+    0,
+  );
+
+const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
+export const emptyHelperSelection = () => ({
+  type: 'none',
+  count: 0,
+  requestedCount: 0,
+  loadingCharge: 0,
+  unloadingCharge: 0,
+  totalCharge: 0,
+  assigned: [],
+});
+
+// Pure so it is testable without a DB. Least-used helpers first so work spreads
+// across the roster instead of piling onto whoever happens to be cheapest.
+//
+// ponytail: `available` is the admin's switch, not a per-job lock — two
+// overlapping bookings can draw the same helper. Real exclusivity needs booking
+// time windows; add a busyUntil field if double-booking becomes a complaint.
+export const selectHelpersFromPool = ({ helperType, count, helpers = [] } = {}) => {
+  const normalized = normalizeHelperType(helperType, 'none');
+  const roles = HELPER_ROLES[normalized];
+
+  if (!roles) {
+    return emptyHelperSelection();
+  }
+
+  const requestedCount = Math.min(
+    Math.max(Math.floor(Number(count) || 1), 1),
+    MAX_HELPERS_PER_BOOKING,
+  );
+
+  const pool = (Array.isArray(helpers) ? helpers : [])
+    .filter((item) => item && item.available !== false && helperCovers(item, roles))
+    .sort(
+      (first, second) =>
+        Number(first.total_jobs || 0) - Number(second.total_jobs || 0) ||
+        helperChargeFor(first, roles) - helperChargeFor(second, roles),
+    )
+    .slice(0, requestedCount);
+
+  const sumRate = (field) => pool.reduce((sum, item) => sum + toMoney(item[field], 0), 0);
+  const loadingCharge = roles.includes('loading') ? roundMoney(sumRate('loading_charge')) : 0;
+  const unloadingCharge = roles.includes('unloading') ? roundMoney(sumRate('unloading_charge')) : 0;
+
+  return {
+    // Nobody available -> the selection collapses to 'none' and costs nothing.
+    type: pool.length ? normalized : 'none',
+    count: pool.length,
+    requestedCount,
+    loadingCharge,
+    unloadingCharge,
+    totalCharge: roundMoney(loadingCharge + unloadingCharge),
+    assigned: pool.map((item) => ({
+      helperId: String(item._id || item.id || ''),
+      name: item.name || '',
+      phone: item.phone || '',
+      helperType: item.helper_type || 'both',
+      charge: roundMoney(helperChargeFor(item, roles)),
+    })),
+  };
+};
+
+// Booking-time entry point. Partial availability degrades the count (the customer
+// pays only for the people who actually turn up); zero availability rejects
+// rather than silently dropping a service the customer asked and would be
+// charged for.
+export const assignHelpersForBooking = async ({ helperType, count } = {}) => {
   const normalized = normalizeHelperType(helperType, 'none');
 
-  if (normalized === 'none' || !['loading', 'unloading', 'both'].includes(normalized)) {
-    return { helperType: 'none', charge: 0 };
+  if (!HELPER_ROLES[normalized]) {
+    return emptyHelperSelection();
   }
 
   const helpers = await Helper.find({ available: { $ne: false } })
-    .select('helper_type loading_charge unloading_charge')
+    .select('name phone helper_type loading_charge unloading_charge available total_jobs')
     .lean();
 
-  const loadingRate = Math.max(
-    0,
-    ...helpers
-      .filter((item) => ['loading', 'both'].includes(item.helper_type))
-      .map((item) => Number(item.loading_charge || 0)),
-    0,
-  );
-  const unloadingRate = Math.max(
-    0,
-    ...helpers
-      .filter((item) => ['unloading', 'both'].includes(item.helper_type))
-      .map((item) => Number(item.unloading_charge || 0)),
-    0,
-  );
+  const selection = selectHelpersFromPool({ helperType: normalized, count, helpers });
 
-  const charge =
-    normalized === 'loading'
-      ? loadingRate
-      : normalized === 'unloading'
-        ? unloadingRate
-        : loadingRate + unloadingRate;
+  if (!selection.count) {
+    throw new ApiError(
+      409,
+      `No ${normalized === 'both' ? 'loading & unloading' : normalized} helper is available right now. Remove the helper add-on to continue.`,
+    );
+  }
 
-  return { helperType: normalized, charge, loadingRate, unloadingRate };
+  return selection;
+};
+
+// Per-helper earnings, job counts and recent jobs for the admin view. Recent jobs
+// are read off Ride.parcel.helper.assigned — no separate job ledger needed.
+export const getHelperEarningsReport = async ({ recentLimit = 5 } = {}) => {
+  const limit = Math.min(Math.max(Math.floor(Number(recentLimit) || 5), 1), 20);
+
+  const [helpers, jobRows] = await Promise.all([
+    Helper.find().sort({ total_earnings: -1, name: 1 }).lean(),
+    Ride.aggregate([
+      { $match: { serviceType: 'parcel', 'parcel.helper.assigned.helperId': { $exists: true, $ne: '' } } },
+      { $sort: { completedAt: -1, createdAt: -1 } },
+      { $unwind: '$parcel.helper.assigned' },
+      {
+        $group: {
+          _id: '$parcel.helper.assigned.helperId',
+          settled_earnings: {
+            $sum: { $cond: ['$helpersSettledAt', '$parcel.helper.assigned.charge', 0] },
+          },
+          settled_jobs: { $sum: { $cond: ['$helpersSettledAt', 1, 0] } },
+          pending_jobs: { $sum: { $cond: ['$helpersSettledAt', 0, 1] } },
+          jobs: {
+            $push: {
+              ride_id: { $toString: '$_id' },
+              status: '$status',
+              charge: '$parcel.helper.assigned.charge',
+              role: '$parcel.helper.assigned.helperType',
+              pickup_address: '$pickupAddress',
+              drop_address: '$dropAddress',
+              settled: { $cond: ['$helpersSettledAt', true, false] },
+              completed_at: '$completedAt',
+              created_at: '$createdAt',
+            },
+          },
+        },
+      },
+      { $project: { settled_earnings: 1, settled_jobs: 1, pending_jobs: 1, jobs: { $slice: ['$jobs', limit] } } },
+    ]),
+  ]);
+
+  const byHelperId = new Map(jobRows.map((row) => [String(row._id), row]));
+
+  const results = helpers.map((helper) => {
+    const row = byHelperId.get(String(helper._id)) || {};
+
+    return {
+      ...serializeHelper(helper),
+      settled_earnings: roundMoney(row.settled_earnings || 0),
+      settled_jobs: Number(row.settled_jobs || 0),
+      pending_jobs: Number(row.pending_jobs || 0),
+      recent_jobs: Array.isArray(row.jobs) ? row.jobs : [],
+    };
+  });
+
+  return {
+    success: true,
+    results,
+    totals: {
+      helpers: results.length,
+      available: results.filter((item) => item.available).length,
+      earnings: roundMoney(results.reduce((sum, item) => sum + item.total_earnings, 0)),
+      jobs: results.reduce((sum, item) => sum + item.total_jobs, 0),
+      pending_jobs: results.reduce((sum, item) => sum + item.pending_jobs, 0),
+    },
+  };
 };

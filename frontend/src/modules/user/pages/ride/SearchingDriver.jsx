@@ -42,6 +42,7 @@ import SuvIcon from '@/assets/icons/SUV.png';
 import BikeIcon from '@/assets/icons/bike.png';
 import CarIcon from '@/assets/icons/car.png';
 import AutoIcon from '@/assets/icons/auto.png';
+import { toStopPayload } from '@/shared/utils/rideStops';
 
 const getVehicleIcon = (type = 'car') => {
   const val = String(type).toLowerCase();
@@ -682,9 +683,7 @@ const SearchingDriver = () => {
           scheduledAt: routeState.scheduledAt || null,
           // The UI collected these and priced the route through them, but they were
           // dropped here, so the driver never saw the stops the rider paid for.
-          stops: Array.isArray(routeState.stops)
-            ? routeState.stops.filter((stop) => String(stop || '').trim().length > 0)
-            : [],
+          stops: toStopPayload(routeState.stops),
         };
 
         const response = await api.post('/rides', requestPayload, rideRequestConfig);

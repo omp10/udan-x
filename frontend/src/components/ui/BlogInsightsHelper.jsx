@@ -58,7 +58,7 @@ export const BlogInsightsHelper = () => {
       {/* Top Header */}
       <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-[#FFB300]/10 text-[#FFB300] rounded-xl">
+          <div className="p-2 bg-[#E85D04]/10 text-[#E85D04] rounded-xl">
             <Rss size={18} />
           </div>
           <div>
@@ -67,7 +67,7 @@ export const BlogInsightsHelper = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1 text-xs">
-          <span className="h-2 w-2 rounded-full bg-[#FFB300] animate-pulse"></span>
+          <span className="h-2 w-2 rounded-full bg-[#E85D04] animate-pulse"></span>
           <span className="text-[11px] font-bold text-slate-300">Updated today</span>
         </div>
       </div>
@@ -80,7 +80,7 @@ export const BlogInsightsHelper = () => {
           <div>
             <div className="flex items-center justify-between mb-3 border-b border-slate-800/50 pb-2">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5">
-                <BookOpen size={12} className="text-[#FFB300]" /> Featured Publication
+                <BookOpen size={12} className="text-[#E85D04]" /> Featured Publication
               </span>
               <span className="text-[9px] font-extrabold text-slate-500">Filter Category</span>
             </div>
@@ -93,7 +93,7 @@ export const BlogInsightsHelper = () => {
                   onClick={() => setActiveTab(cat)}
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition ${
                     activeTab === cat 
-                      ? 'bg-[#FFB300] text-slate-950 shadow-md shadow-[#FFB300]/10' 
+                      ? 'bg-[#E85D04] text-slate-950 shadow-md shadow-[#E85D04]/10' 
                       : 'bg-slate-950/40 border border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
@@ -114,14 +114,14 @@ export const BlogInsightsHelper = () => {
                   className="bg-slate-950/50 border border-slate-800 rounded-xl p-3.5"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-[#FFB300]/10 text-[#FFB300] border border-[#FFB300]/20">
+                    <span className="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-[#E85D04]/10 text-[#E85D04] border border-[#E85D04]/20">
                       {featuredInsights[activeTab].tag}
                     </span>
                     <span className="text-[9px] text-slate-500 font-bold flex items-center gap-1">
                       <Clock size={10} /> {featuredInsights[activeTab].readTime}
                     </span>
                   </div>
-                  <h4 className="font-extrabold text-sm text-white mb-2 leading-tight hover:text-[#FFB300] transition duration-200">
+                  <h4 className="font-extrabold text-sm text-white mb-2 leading-tight hover:text-[#E85D04] transition duration-200">
                     {featuredInsights[activeTab].title}
                   </h4>
                   <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-3">
@@ -135,12 +135,12 @@ export const BlogInsightsHelper = () => {
           {/* Read article button */}
           <div className="mt-4 flex items-center justify-between bg-slate-950/80 border border-slate-850 p-2.5 rounded-xl">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-black text-[#FFB300]">
+              <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-black text-[#E85D04]">
                 R
               </div>
               <span className="text-[10px] text-slate-400 font-bold">Author: {featuredInsights[activeTab].author}</span>
             </div>
-            <button className="flex items-center gap-1.5 text-[10px] font-black text-[#FFB300] hover:underline uppercase tracking-wider">
+            <button className="flex items-center gap-1.5 text-[10px] font-black text-[#E85D04] hover:underline uppercase tracking-wider">
               Explore Article <ArrowRight size={12} />
             </button>
           </div>
@@ -152,7 +152,7 @@ export const BlogInsightsHelper = () => {
           {/* Dashboard Metrics summary */}
           <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col justify-between">
             <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1.5 mb-3">
-              <Award size={12} className="text-[#FFB300]" /> Telemetry Stats
+              <Award size={12} className="text-[#E85D04]" /> Telemetry Stats
             </span>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
@@ -161,7 +161,7 @@ export const BlogInsightsHelper = () => {
               </div>
               <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
                 <p className="text-[9px] text-slate-400 font-bold">Publications</p>
-                <p className="text-lg font-black text-[#FFB300]">{stats.articles}</p>
+                <p className="text-lg font-black text-[#E85D04]">{stats.articles}</p>
               </div>
             </div>
           </div>
@@ -196,12 +196,12 @@ export const BlogInsightsHelper = () => {
                         placeholder="Enter email address..."
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-white focus:outline-none focus:border-[#FFB300] placeholder-slate-600 transition"
+                        className="bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-white focus:outline-none focus:border-[#E85D04] placeholder-slate-600 transition"
                       />
                       <button 
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-[#FFB300] text-slate-950 text-[11px] font-black uppercase tracking-wider py-2.5 rounded-xl hover:bg-[#e09e00] transition active:scale-97 flex items-center justify-center gap-1.5"
+                        className="w-full bg-[#E85D04] text-slate-950 text-[11px] font-black uppercase tracking-wider py-2.5 rounded-xl hover:bg-[#e09e00] transition active:scale-97 flex items-center justify-center gap-1.5"
                       >
                         {loading ? 'Subscribing...' : 'Subscribe Now'}
                       </button>

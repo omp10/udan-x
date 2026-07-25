@@ -62,9 +62,9 @@ body {
 @theme {
   --color-primary: #E85D04;
   --color-secondary: #F48C06;
-  /* Same value as --color-primary, but under a name the legacy
-     `.user-app-theme .bg-primary { ... !important }` accent override does not
-     capture, so design-system components keep the real brand orange. */
+  /* Same value as --color-primary, but under a name none of the legacy
+     `.user-app-theme … !important` accent overrides capture, so design-system
+     components keep the real brand orange. */
   --color-brand: var(--color-primary);
   --color-brand-soft: color-mix(in srgb, var(--color-primary) 12%, transparent);
 
@@ -415,14 +415,9 @@ body {
 .user-app-theme .bg-gray-50\/50,
 .user-app-theme .bg-slate-900,
 .user-app-theme .bg-slate-950,
-.user-app-theme .bg-zinc-950,
-.user-app-theme .bg-neutral-950,
 .user-app-theme .bg-slate-900\/90,
-.user-app-theme .bg-slate-900\/95,
 .user-app-theme .bg-slate-900\/80,
-.user-app-theme .bg-black\/60,
 .user-app-theme .bg-slate-950\/70,
-.user-app-theme .bg-slate-950\/85,
 .user-app-theme .bg-slate-950\/80,
 .user-app-theme .bg-zinc-900,
 .user-app-theme .bg-zinc-900\/80 {
@@ -436,7 +431,6 @@ body {
 .user-app-theme .text-slate-900,
 .user-app-theme .text-slate-800,
 .user-app-theme .text-gray-900,
-.user-app-theme .text-gray-800,
 .user-app-theme .text-black,
 .user-app-theme .text-white,
 .user-app-theme .text-zinc-100 {
@@ -448,7 +442,6 @@ body {
 .user-app-theme .text-slate-600,
 .user-app-theme .text-slate-400,
 .user-app-theme .text-gray-700,
-.user-app-theme .text-gray-600,
 .user-app-theme .text-gray-400,
 .user-app-theme .text-zinc-400,
 .user-app-theme .text-slate-300 {
@@ -476,9 +469,7 @@ body {
 .user-app-theme .border-zinc-800,
 .user-app-theme .border-slate-300,
 .user-app-theme .border-slate-350,
-.user-app-theme .border-gray-100,
-.user-app-theme .border-gray-200,
-.user-app-theme .border-gray-300 {
+.user-app-theme .border-gray-100 {
   border-color: var(--user-border) !important;
 }
 
@@ -492,7 +483,6 @@ body {
 }
 
 /* Accent overrides */
-.user-app-theme .text-primary,
 .user-app-theme .text-amber-500,
 .user-app-theme .text-orange-500,
 .user-app-theme .text-\[\#E85D04\],
@@ -501,7 +491,6 @@ body {
   color: var(--user-accent) !important;
 }
 
-.user-app-theme .bg-primary,
 .user-app-theme .bg-orange-500,
 .user-app-theme .bg-amber-500,
 .user-app-theme .bg-\[\#E85D04\],
@@ -509,15 +498,6 @@ body {
 .user-app-theme .bg-yellow-500 {
   background-color: var(--user-accent) !important;
   color: #0b1220 !important;
-}
-
-/* Glassmorphism custom components */
-.user-glass-card {
-  background: var(--user-card-bg) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid var(--user-border) !important;
-  border-radius: 24px !important;
 }
 
 /* For Inputs */
@@ -567,34 +547,23 @@ body {
 .user-app-theme .bg-slate-100,
 .user-app-theme .bg-gray-100,
 .user-app-theme .bg-slate-200,
-.user-app-theme .bg-gray-200,
 .user-app-theme .bg-slate-300,
-.user-app-theme .bg-gray-300,
 .user-app-theme .bg-slate-50\/50,
-.user-app-theme .bg-slate-50\/60,
-.user-app-theme .bg-slate-50\/70,
 .user-app-theme .bg-slate-50\/80,
-.user-app-theme .bg-slate-50\/90,
 .user-app-theme .bg-slate-100\/40,
 .user-app-theme .bg-slate-100\/50,
 .user-app-theme .bg-slate-100\/60,
-.user-app-theme .bg-slate-100\/70,
 .user-app-theme .bg-white\/10,
 .user-app-theme .bg-white\/20,
-.user-app-theme .bg-white\/30,
 .user-app-theme .bg-slate-200\/50,
 .user-app-theme .bg-orange-50,
-.user-app-theme .bg-orange-50\/60,
 .user-app-theme .bg-orange-50\/70,
 .user-app-theme .bg-orange-100,
 .user-app-theme .bg-orange-100\/60,
 .user-app-theme .bg-emerald-50,
-.user-app-theme .bg-emerald-50\/30,
 .user-app-theme .bg-emerald-50\/50,
-.user-app-theme .bg-emerald-50\/70,
 .user-app-theme .bg-emerald-100,
 .user-app-theme .bg-emerald-100\/50,
-.user-app-theme .bg-emerald-100\/70,
 .user-app-theme .bg-blue-50,
 .user-app-theme .bg-blue-50\/60,
 .user-app-theme .bg-blue-50\/70,
@@ -602,21 +571,15 @@ body {
 .user-app-theme .bg-blue-100\/50,
 .user-app-theme .bg-indigo-50,
 .user-app-theme .bg-indigo-50\/50,
-.user-app-theme .bg-indigo-50\/70,
 .user-app-theme .bg-red-50,
 .user-app-theme .bg-rose-50,
-.user-app-theme .bg-rose-50\/60,
-.user-app-theme .bg-rose-50\/70,
 .user-app-theme .bg-rose-100,
 .user-app-theme .bg-amber-50,
-.user-app-theme .bg-amber-50\/60,
 .user-app-theme .bg-amber-100,
 .user-app-theme .bg-yellow-50,
-.user-app-theme .bg-yellow-50\/60,
 .user-app-theme .bg-yellow-100,
 .user-app-theme .bg-slate-900\/60,
 .user-app-theme .bg-slate-950\/60,
-.user-app-theme .bg-slate-950\/75,
 .user-app-theme .bg-zinc-800 {
   background-color: var(--user-card-soft) !important;
 }
@@ -659,9 +622,7 @@ body {
 .user-app-theme [class*="bg-[linear-gradient"],
 .user-app-theme [class*="bg-[#FAFBFF]"],
 .user-app-theme [class*="bg-[#FDFDFD]"],
-.user-app-theme [class*="bg-[#F8FAFC]"],
-.user-app-theme [class*="bg-[#E7F5E8]"],
-.user-app-theme [class*="bg-[#f5f7fb]"] {
+.user-app-theme [class*="bg-[#F8FAFC]"] {
   background: var(--user-bg) !important;
   background-image: none !important;
 }
@@ -810,47 +771,6 @@ body {
   box-shadow: 0 0 12px rgba(232, 93, 4, 0.2) !important;
 }
 
-/* Theme Toggle Button Style */
-.theme-toggle-floating {
-  position: absolute;
-  top: 28px;
-  right: 26px;
-  z-index: 10;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  color: #ffffff !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}
-
-.theme-toggle-floating:hover {
-  transform: scale(1.08);
-  background: rgba(0, 0, 0, 0.45) !important;
-}
-
-.theme-toggle-floating:active {
-  transform: scale(0.95);
-}
-
-.user-app-theme.light .theme-toggle-floating {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border: 1px solid rgba(15, 23, 42, 0.12) !important;
-  color: #0b1220 !important;
-}
-
-.user-app-theme.light .theme-toggle-floating:hover {
-  background: rgba(255, 255, 255, 0.9) !important;
-}
-
 /* Custom Search Button Overrides to bypass global button overrides */
 .user-app-theme .search-button-dark {
   background-color: #000000 !important;
@@ -914,31 +834,6 @@ body {
   }
 }
 
-/* Shortcut image background blob */
-.shortcut-image-bg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 20px;
-  width: 60px;
-  height: 60px;
-  padding: 10px;
-  flex-shrink: 0;
-  transition: all 0.3s ease;
-}
-
-.user-app-theme.light .shortcut-image-bg,
-.user-app-theme .light .shortcut-image-bg,
-.user-app-theme[class*="light"] .shortcut-image-bg {
-  background: linear-gradient(135deg, #fff7cc, #eef4ff);
-}
-
-.user-app-theme.dark .shortcut-image-bg,
-.user-app-theme .dark .shortcut-image-bg,
-.user-app-theme[class*="dark"] .shortcut-image-bg {
-  background: linear-gradient(135deg, rgba(232,93,4,0.18), rgba(255,255,255,0.08));
-}
-
 .user-bottom-nav {
   position: fixed !important;
   left: 50% !important;
@@ -948,10 +843,6 @@ body {
   width: calc(100% - 32px) !important;
   max-width: 390px !important;
   pointer-events: auto !important;
-}
-
-.user-home-scroll {
-  padding-bottom: 140px;
 }
 
 /* HTML and Body scroll configurations */
@@ -1131,14 +1022,12 @@ html, body, #root {
 }
 
 /* Home page spacing and layout alignment rules */
-.user-app,
-.mobile-app-shell {
+.user-app {
   width: 100% !important;
   overflow-x: hidden !important;
 }
 @media (max-width: 1023px) {
-  .user-app,
-  .mobile-app-shell {
+  .user-app {
     max-width: 430px !important;
   }
 }
@@ -1259,7 +1148,6 @@ body.splash-active {
   .user-app-theme,
   .user-home,
   .user-app,
-  .mobile-app-shell,
   .all-services-sheet {
     max-width: 100% !important;
   }

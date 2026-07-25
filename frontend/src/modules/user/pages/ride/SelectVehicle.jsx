@@ -24,6 +24,7 @@ import HatchbackIcon from '../../../../assets/icons/Hatchback.png';
 import BusIcon from '../../../../assets/icons/bus.png';
 import MiniBusIcon from '../../../../assets/icons/mini_bus.png';
 import { toStopAddresses } from '../../../../shared/utils/rideStops';
+import { BottomSheet, Button, Card, Input } from '../../components/ui';
 
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
 const SELECT_VEHICLE_MAP_OPTIONS = {
@@ -267,33 +268,33 @@ const VehicleMapPreview = React.memo(({ center, dropPosition, stops = [], driver
 
   if (!HAS_VALID_GOOGLE_MAPS_KEY) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-slate-200 px-6 text-center">
-        <div className="rounded-[18px] bg-white/90 px-4 py-4 shadow-sm">
-          <p className="text-[12px] font-bold text-slate-900">Google Maps key missing</p>
-          <p className="mt-1 text-[11px] font-bold text-slate-500">Set `VITE_GOOGLE_MAPS_API_KEY` in `frontend/.env`.</p>
-        </div>
+      <div className="flex h-full w-full items-center justify-center bg-surface-sunken px-6 text-center">
+        <Card>
+          <p className="text-[12px] font-bold text-ink">Google Maps key missing</p>
+          <p className="mt-1 text-[11px] font-bold text-ink-faint">Set `VITE_GOOGLE_MAPS_API_KEY` in `frontend/.env`.</p>
+        </Card>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-slate-200 px-6 text-center">
-        <div className="rounded-[18px] bg-white/90 px-4 py-4 shadow-sm">
-          <p className="text-[12px] font-bold text-slate-900">Google Maps failed to load</p>
-          <p className="mt-1 text-[11px] font-bold text-slate-500">Check the browser key restrictions and reload.</p>
-        </div>
+      <div className="flex h-full w-full items-center justify-center bg-surface-sunken px-6 text-center">
+        <Card>
+          <p className="text-[12px] font-bold text-ink">Google Maps failed to load</p>
+          <p className="mt-1 text-[11px] font-bold text-ink-faint">Check the browser key restrictions and reload.</p>
+        </Card>
       </div>
     );
   }
 
   if (!isLoaded) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-slate-200">
-        <div className="flex items-center gap-2 rounded-[16px] bg-white/90 px-4 py-3 shadow-sm">
-          <LoaderCircle size={18} className="animate-spin text-slate-500" />
-          <span className="text-[12px] font-bold text-slate-700">Loading map</span>
-        </div>
+      <div className="flex h-full w-full items-center justify-center bg-surface-sunken">
+        <Card className="flex items-center gap-2">
+          <LoaderCircle size={18} className="animate-spin text-ink-faint" />
+          <span className="text-[12px] font-bold text-ink-soft">Loading map</span>
+        </Card>
       </div>
     );
   }
@@ -322,7 +323,7 @@ const VehicleMapPreview = React.memo(({ center, dropPosition, stops = [], driver
         <CircleLocationMarker
           position={center}
           title="Pickup"
-          color="#f8e001"
+          color="#E85D04"
           strokeColor="#111827"
           size={16}
         />
@@ -356,14 +357,14 @@ const VehicleMapPreview = React.memo(({ center, dropPosition, stops = [], driver
         ))}
       </GoogleMap>
 
-      <div className="pointer-events-none absolute bottom-24 left-4 rounded-[12px] border border-white/70 bg-white/90 px-3 py-2 shadow-sm">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pickup</p>
-        <p className="text-[11px] font-bold text-slate-800">{center.lat.toFixed(4)}, {center.lng.toFixed(4)}</p>
+      <div className="pointer-events-none absolute bottom-24 left-4 rounded-control border border-line bg-surface/95 px-3 py-2 shadow-card">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint">Pickup</p>
+        <p className="text-[11px] font-bold text-ink">{center.lat.toFixed(4)}, {center.lng.toFixed(4)}</p>
       </div>
       {routeError && (
-        <div className="pointer-events-none absolute bottom-10 left-4 rounded-[12px] border border-amber-100 bg-white/90 px-3 py-2 shadow-sm">
+        <div className="pointer-events-none absolute bottom-10 left-4 rounded-control border border-line bg-surface/95 px-3 py-2 shadow-card">
           <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">Route</p>
-          <p className="text-[11px] font-bold text-slate-700">Using fallback path while directions load.</p>
+          <p className="text-[11px] font-bold text-ink-soft">Using fallback path while directions load.</p>
         </div>
       )}
     </div>
@@ -372,8 +373,8 @@ const VehicleMapPreview = React.memo(({ center, dropPosition, stops = [], driver
 
 const unwrap = (response) => response?.data?.data || response?.data || response;
 const PAYMENT_OPTIONS = [
-  { id: 'cash', stateValue: 'Cash', label: 'Cash', sub: 'Pay after ride', Icon: Banknote, bg: 'bg-green-50', color: 'text-green-600' },
-  { id: 'online', stateValue: 'Online Payment', label: 'Online Payment', sub: 'UPI, Cards or Wallets', Icon: CreditCard, bg: 'bg-blue-50', color: 'text-blue-600' },
+  { id: 'cash', stateValue: 'Cash', label: 'Cash', sub: 'Pay after ride', Icon: Banknote, bg: 'bg-emerald-500/12', color: 'text-emerald-600' },
+  { id: 'online', stateValue: 'Online Payment', label: 'Online Payment', sub: 'UPI, Cards or Wallets', Icon: CreditCard, bg: 'bg-blue-500/12', color: 'text-blue-600' },
 ];
 const DEFAULT_AVAILABILITY = {
   drivers: [],
@@ -1068,7 +1069,7 @@ const normalizeVehicleType = (type, index) => {
     name: getTypeLabel(type),
     capacity: getCapacity(type),
     badge: null,
-    badgeColor: 'bg-orange-50 text-orange-500 border-orange-100',
+    badgeColor: 'bg-brand-soft text-brand border-brand/25',
     sublabel: type?.short_description || type?.description || 'Available ride',
     price: getFallbackVehicleEstimate(type),
     dispatchType,
@@ -1113,7 +1114,7 @@ const ScrollIndicator = ({ show }) => (
         exit={{ opacity: 0, y: -4 }}
         className="pointer-events-none absolute bottom-3 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center"
       >
-        <div className="flex h-6 w-6 animate-bounce items-center justify-center rounded-full border border-slate-100 bg-white/95 text-slate-400 shadow-[0_4px_12px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+        <div className="flex h-6 w-6 animate-bounce items-center justify-center rounded-pill border border-line bg-surface/95 text-ink-faint shadow-card backdrop-blur-sm">
           <ChevronDown size={14} strokeWidth={3} />
         </div>
       </motion.div>
@@ -2108,10 +2109,10 @@ const SelectVehicle = () => {
   };
 
   return (
-    <div className="h-[100dvh] bg-slate-50 w-full lg:max-w-7xl mx-auto relative font-['Plus_Jakarta_Sans'] overflow-hidden lg:grid lg:grid-cols-12 lg:bg-white lg:shadow-xl">
+    <div className="h-[100dvh] bg-surface-page text-ink w-full lg:max-w-7xl mx-auto relative font-sans overflow-hidden lg:grid lg:grid-cols-12 lg:bg-surface lg:shadow-premium">
       
       {/* MAP BACKGROUND (Mobile) / RIGHT COLUMN (Desktop) */}
-      <div className="absolute inset-0 w-full bg-gray-200 lg:relative lg:col-span-7 lg:col-start-6 lg:h-full lg:rounded-r-3xl lg:overflow-hidden lg:z-0">
+      <div className="absolute inset-0 w-full bg-surface-sunken lg:relative lg:col-span-7 lg:col-start-6 lg:h-full lg:rounded-r-3xl lg:overflow-hidden lg:z-0">
         <VehicleMapPreview
           center={pickupPosition}
           dropPosition={dropPosition}
@@ -2126,42 +2127,42 @@ const SelectVehicle = () => {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => navigate(-1)}
-            className="w-10 h-10 bg-white/95 rounded-[14px] shadow-[0_4px_14px_rgba(15,23,42,0.12)] flex items-center justify-center shrink-0"
+            className="w-10 h-10 bg-surface/95 border border-line rounded-control shadow-card flex items-center justify-center shrink-0"
           >
-            <ArrowLeft size={18} className="text-slate-900" strokeWidth={2.5} />
+            <ArrowLeft size={18} className="text-ink" strokeWidth={2.5} />
           </motion.button>
         </div>
       </div>
 
       {/* BOTTOM SHEET (Mobile) / LEFT COLUMN (Desktop) */}
-      <div className="absolute bottom-0 left-0 right-0 z-40 flex max-h-[69dvh] min-h-[360px] min-w-0 flex-col overflow-hidden rounded-t-[26px] bg-white shadow-[0_-12px_44px_rgba(15,23,42,0.16)] lg:relative lg:col-span-5 lg:col-start-1 lg:row-start-1 lg:h-full lg:max-h-none lg:rounded-none lg:shadow-none lg:border-r lg:border-slate-200 lg:z-10">
+      <div className="absolute bottom-0 left-0 right-0 z-40 flex max-h-[69dvh] min-h-[360px] min-w-0 flex-col overflow-hidden rounded-t-sheet bg-surface shadow-sheet lg:relative lg:col-span-5 lg:col-start-1 lg:row-start-1 lg:h-full lg:max-h-none lg:rounded-none lg:shadow-none lg:border-r lg:border-line lg:z-10">
         
         {/* Desktop Header */}
-        <div className="hidden lg:flex items-center gap-3 px-4 pt-6 pb-2 border-b border-slate-100">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors">
-            <ArrowLeft size={22} className="text-slate-900" strokeWidth={3} />
+        <div className="hidden lg:flex items-center gap-3 px-4 pt-6 pb-2 border-b border-line">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-pill hover:bg-surface-sunken transition-colors">
+            <ArrowLeft size={22} className="text-ink" strokeWidth={3} />
           </button>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">Ride</p>
-            <h1 className="text-[20px] font-bold text-slate-900 tracking-tight leading-none">Select Vehicle</h1>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-faint leading-tight">Ride</p>
+            <h1 className="text-[20px] font-bold text-ink tracking-tight leading-none">Select Vehicle</h1>
           </div>
         </div>
 
-        <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-2.5 mb-2 shrink-0 lg:hidden" />
+        <div className="w-10 h-1 bg-line rounded-pill mx-auto mt-2.5 mb-2 shrink-0 lg:hidden" />
 
-        <div className="shrink-0 border-b border-slate-100 px-4 pb-3">
+        <div className="shrink-0 border-b border-line px-4 pb-3">
           {routeState.selectedCategory && (() => {
             const cat = String(routeState.selectedCategory).toLowerCase();
-            const bgClass = cat === 'bike' 
-              ? 'bg-orange-50 border-orange-100 text-orange-600' 
-              : cat === 'auto' 
-                ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
-                : 'bg-blue-50 border-blue-100 text-blue-600';
+            const bgClass = cat === 'bike'
+              ? 'bg-brand-soft border-brand/25 text-brand'
+              : cat === 'auto'
+                ? 'bg-emerald-500/12 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
+                : 'bg-blue-500/12 border-blue-500/25 text-blue-600 dark:text-blue-400';
             return (
-              <div className={`mb-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider select-none ${bgClass}`}>
+              <div className={`mb-2 inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-0.5 text-3xs font-bold uppercase tracking-wider select-none ${bgClass}`}>
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${cat === 'bike' ? 'bg-orange-400' : cat === 'auto' ? 'bg-emerald-400' : 'bg-blue-400'}`}></span>
-                  <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${cat === 'bike' ? 'bg-orange-500' : cat === 'auto' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-pill opacity-75 ${cat === 'bike' ? 'bg-brand' : cat === 'auto' ? 'bg-emerald-400' : 'bg-blue-400'}`}></span>
+                  <span className={`relative inline-flex rounded-pill h-1.5 w-1.5 ${cat === 'bike' ? 'bg-brand' : cat === 'auto' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
                 </span>
                 <span>Category: {routeState.selectedCategory}</span>
               </div>
@@ -2171,31 +2172,31 @@ const SelectVehicle = () => {
             <div className="min-w-0 flex-1">
               <div className="flex gap-3">
                 <div className="flex w-2.5 shrink-0 flex-col items-center">
-                  <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-[#7fc76d]" />
-                  <span className="my-1 h-6 w-px bg-slate-300" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#d95c6a]" />
+                  <span className="mt-1.5 h-2.5 w-2.5 rounded-pill bg-emerald-500" />
+                  <span className="my-1 h-6 w-px bg-line" />
+                  <span className="h-2.5 w-2.5 rounded-pill bg-rose-500" />
                 </div>
                 <div className="min-w-0 flex-1 space-y-3">
-                  <p className="pt-0.5 truncate text-[13px] font-medium text-slate-700">{pickup}</p>
+                  <p className="pt-0.5 truncate text-[13px] font-medium text-ink-soft">{pickup}</p>
                   <button
                     type="button"
                     onClick={openLocationEditor}
-                    className="flex w-full items-start rounded-[12px] -mx-1 px-1 py-1 text-left transition hover:bg-slate-50"
+                    className="flex w-full items-start rounded-control -mx-1 px-1 py-1 text-left transition hover:bg-surface-sunken"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-slate-700">{drop}</p>
+                      <p className="truncate text-[13px] font-medium text-ink-soft">{drop}</p>
                       {tripMetrics.distanceMeters > 0 && (
                         <div className="mt-1.5 flex items-center gap-2 select-none">
-                          <span className="inline-flex items-center bg-[#eff6ff] border border-[#dbeafe] px-2 py-0.5 rounded-lg text-[10px] font-bold text-blue-600">
+                          <span className="inline-flex items-center bg-blue-500/12 border border-blue-500/20 px-2 py-0.5 rounded-lg text-[10px] font-bold text-blue-600 dark:text-blue-400">
                             {(tripMetrics.distanceMeters / 1000).toFixed(1)} km
                           </span>
-                          <span className="inline-flex items-center bg-[#f0fdf4] border border-[#dcfce7] px-2 py-0.5 rounded-lg text-[10px] font-bold text-emerald-600">
+                          <span className="inline-flex items-center bg-emerald-500/12 border border-emerald-500/20 px-2 py-0.5 rounded-lg text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                             {tripMetrics.durationMinutes} mins
                           </span>
                         </div>
                       )}
                     </div>
-                    <span className="shrink-0 text-[11px] font-semibold text-slate-400 mt-0.5">Edit</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-ink-faint mt-0.5">Edit</span>
                   </button>
                 </div>
               </div>
@@ -2203,10 +2204,10 @@ const SelectVehicle = () => {
             <button
               type="button"
               onClick={() => openPicker(scheduledAtInputRef)}
-              className={`flex w-[42px] shrink-0 flex-col items-center justify-center rounded-[12px] border px-1 py-2 text-[10px] font-medium ${
+              className={`flex w-[42px] shrink-0 flex-col items-center justify-center rounded-control border px-1 py-2 text-[10px] font-medium ${
                 rideMode === 'schedule'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-600'
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-line bg-surface text-ink-soft'
               }`}
             >
               <Clock3 size={14} strokeWidth={2.2} />
@@ -2222,23 +2223,23 @@ const SelectVehicle = () => {
             className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-3 pt-3 pb-2 space-y-2.5 touch-pan-y"
           >
             {isInitialVehicleResultsLoading && (
-              <div className="min-h-[180px] flex flex-col items-center justify-center gap-3 text-slate-400">
+              <div className="min-h-[180px] flex flex-col items-center justify-center gap-3 text-ink-faint">
                 <LoaderCircle size={26} className="animate-spin" />
                 <p className="text-[11px] font-bold uppercase tracking-widest">Finding available rides</p>
               </div>
             )}
 
             {!isInitialVehicleResultsLoading && vehicleLoadError && (
-              <div className="rounded-[18px] border border-red-50 bg-white px-4 py-5 text-center">
-                <p className="text-[12px] font-black text-red-500">{vehicleLoadError}</p>
-                <p className="mt-1 text-[10px] font-bold text-slate-400">Please try again later.</p>
+              <div className="rounded-card border border-line bg-surface px-4 py-5 text-center">
+                <p className="text-[12px] font-black text-rose-500">{vehicleLoadError}</p>
+                <p className="mt-1 text-[10px] font-bold text-ink-faint">Please try again later.</p>
               </div>
             )}
 
             {!isInitialVehicleResultsLoading && !vehicleLoadError && displayedVehicles.length === 0 && (
-              <div className="rounded-[18px] border border-slate-100 bg-white px-4 py-5 text-center">
-                <p className="text-[13px] font-bold text-slate-900">No vehicles available</p>
-                <p className="mt-1 text-[11px] font-bold text-slate-400">Try changing your location or method.</p>
+              <div className="rounded-card border border-line bg-surface px-4 py-5 text-center">
+                <p className="text-[13px] font-bold text-ink">No vehicles available</p>
+                <p className="mt-1 text-[11px] font-bold text-ink-faint">Try changing your location or method.</p>
               </div>
             )}
 
@@ -2264,10 +2265,10 @@ const SelectVehicle = () => {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: i * 0.04, ease: [0.23, 1, 0.32, 1] }}
-                  className={`overflow-hidden rounded-[18px] border transition-all ${
+                  className={`overflow-hidden rounded-card border transition-all ${
                     isSelected
-                      ? 'border-slate-200 bg-slate-50 shadow-[0_6px_16px_rgba(15,23,42,0.08)]'
-                      : 'border-transparent bg-white'
+                      ? 'border-line bg-surface-sunken shadow-card'
+                      : 'border-transparent bg-surface'
                   }`}
                 >
                   <div
@@ -2296,21 +2297,21 @@ const SelectVehicle = () => {
                       <div className="flex h-9 w-full items-center justify-center">
                         <img src={v.icon} alt={v.name} className="h-8 w-12 object-contain" draggable={false} onError={(e) => { e.target.onerror = null; e.target.src = CarIcon; }} />
                       </div>
-                      <span className="mt-1 text-[10px] font-medium text-slate-500">{compactEta} min</span>
+                      <span className="mt-1 text-[10px] font-medium text-ink-faint">{compactEta} min</span>
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <span className="block truncate text-[14px] font-semibold leading-tight text-slate-900">
+                          <span className="block truncate text-[14px] font-semibold leading-tight text-ink">
                             {v.name}
                           </span>
-                          <p className={`mt-0.5 truncate text-[11px] font-medium ${isUnavailable && rideMode !== 'schedule' ? 'text-rose-500' : 'text-slate-400'}`}>
+                          <p className={`mt-0.5 truncate text-[11px] font-medium ${isUnavailable && rideMode !== 'schedule' ? 'text-rose-500' : 'text-ink-faint'}`}>
                             {sublabel}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <span className="block text-[20px] font-semibold leading-none text-slate-900">
+                          <span className="block text-[20px] font-semibold leading-none text-ink">
                             {fareLabel}
                           </span>
                           {isSelected && (
@@ -2321,7 +2322,7 @@ const SelectVehicle = () => {
                                   event.stopPropagation();
                                   setPreviewVehicleId(v.id);
                                 }}
-                                className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                                className="flex h-6 w-6 items-center justify-center rounded-pill border border-line bg-surface text-ink-faint transition hover:text-ink"
                                 aria-label={`View details for ${v.name}`}
                                 title={`View details for ${v.name}`}
                               >
@@ -2335,7 +2336,7 @@ const SelectVehicle = () => {
                       {isSelected && (
                         <div className="mt-2">
                           <div className="min-w-0">
-                            <p className="truncate text-[11px] font-medium text-slate-500">
+                            <p className="truncate text-[11px] font-medium text-ink-faint">
                               {rideMode === 'schedule'
                                 ? `Scheduled for ${formatScheduledDisplay(scheduledAt)}`
                                 : isUnavailable
@@ -2352,7 +2353,7 @@ const SelectVehicle = () => {
                   </div>
 
                   {!isSelected && i < displayedVehicles.length - 1 && (
-                    <div className="ml-[68px] border-b border-slate-100" />
+                    <div className="ml-[68px] border-b border-line" />
                   )}
                 </motion.div>
               );
@@ -2361,7 +2362,7 @@ const SelectVehicle = () => {
           <ScrollIndicator show={showScrollArrow} />
         </div>
 
-        <div className="shrink-0 border-t border-slate-100 bg-white px-3 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2.5">
+        <div className="shrink-0 border-t border-line bg-surface px-3 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2.5">
           <input
             ref={scheduledAtInputRef}
             type="datetime-local"
@@ -2376,58 +2377,58 @@ const SelectVehicle = () => {
             className="sr-only"
           />
 
-          <div className="grid grid-cols-3 rounded-[12px] border border-slate-200 bg-white">
+          <div className="grid grid-cols-3 rounded-control border border-line bg-surface">
             <button
               type="button"
               onClick={() => setShowPaymentModal(true)}
-              className="flex items-center justify-center gap-2 border-r border-slate-200 px-3 py-2.5 text-[12px] font-medium text-slate-700"
+              className="flex items-center justify-center gap-2 border-r border-line px-3 py-2.5 text-[12px] font-medium text-ink-soft"
             >
-              <Banknote size={15} strokeWidth={2.2} className="text-green-600" />
+              <Banknote size={15} strokeWidth={2.2} className="text-emerald-600" />
               <span>{paymentMethod === 'Cash' ? 'Cash' : 'Online'}</span>
             </button>
             <button
               type="button"
               onClick={() => setShowCouponModal(true)}
-              className={`flex items-center justify-center gap-2 border-r border-slate-200 px-3 py-2.5 text-[12px] font-medium ${
-                appliedPromo ? 'text-emerald-700' : 'text-slate-700'
+              className={`flex items-center justify-center gap-2 border-r border-line px-3 py-2.5 text-[12px] font-medium ${
+                appliedPromo ? 'text-emerald-600 dark:text-emerald-400' : 'text-ink-soft'
               }`}
             >
-              <TicketPercent size={14} strokeWidth={2.3} className={appliedPromo ? 'text-emerald-600' : 'text-slate-500'} />
+              <TicketPercent size={14} strokeWidth={2.3} className={appliedPromo ? 'text-emerald-600' : 'text-ink-faint'} />
               <span>{appliedPromo?.promo?.code || (availablePromos.length ? `Coupon ${availablePromos.length}` : 'Coupon')}</span>
             </button>
             <button
               type="button"
-              className="flex items-center justify-center gap-2 px-3 py-2.5 text-[12px] font-medium text-slate-700"
+              className="flex items-center justify-center gap-2 px-3 py-2.5 text-[12px] font-medium text-ink-soft"
             >
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-600">•</span>
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-pill bg-surface-sunken text-[10px] text-ink-soft">•</span>
               <span>Myself</span>
             </button>
           </div>
 
           {(appliedPromo || promoError || promoFeedback) && (
-            <div className={`mt-2 rounded-[12px] border px-3 py-2 ${
-              promoError ? 'border-rose-100 bg-rose-50/70' : 'border-emerald-100 bg-emerald-50/70'
+            <div className={`mt-2 rounded-control border px-3 py-2 ${
+              promoError ? 'border-rose-500/25 bg-rose-500/10' : 'border-emerald-500/25 bg-emerald-500/10'
             }`}>
               {appliedPromo && !promoError ? (
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-[11px] font-semibold text-emerald-700">
+                    <p className="truncate text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                       {appliedPromo.promo?.code} applied for this zone
                     </p>
-                    <p className="mt-0.5 text-[10px] font-medium text-emerald-700/80">
+                    <p className="mt-0.5 text-[10px] font-medium text-emerald-600/80 dark:text-emerald-400/80">
                       Save {formatCurrency(appliedPromoDiscount)}. Fare now {formatCurrency(discountedSelectedFare)}.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => clearAppliedPromo('Coupon removed.')}
-                    className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
+                    className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
                   >
                     Remove
                   </button>
                 </div>
               ) : (
-                <p className={`text-[10px] font-medium ${promoError ? 'text-rose-600' : 'text-emerald-700'}`}>
+                <p className={`text-[10px] font-medium ${promoError ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {promoError || promoFeedback}
                 </p>
               )}
@@ -2439,10 +2440,10 @@ const SelectVehicle = () => {
             whileTap={canProceed ? { scale: 0.98 } : undefined}
             disabled={!canProceed}
             onClick={handleBook}
-            className={`mt-3 flex w-full items-center justify-center rounded-[8px] px-4 py-3.5 text-[16px] font-medium transition ${
+            className={`mt-3 flex w-full items-center justify-center rounded-control px-4 py-3.5 text-[16px] font-bold transition ${
               canProceed
-                ? 'bg-[#1f1f1f] !text-white'
-                : 'bg-slate-200 text-slate-400'
+                ? 'bg-brand !text-white shadow-soft'
+                : 'bg-surface-sunken text-ink-faint'
             }`}
           >
             {selectedVehicle
@@ -2460,7 +2461,7 @@ const SelectVehicle = () => {
             scheduleError ? (
               <p className="mt-2 text-[11px] font-medium text-rose-500">{scheduleError}</p>
             ) : (
-              <p className="mt-2 text-[11px] font-medium text-slate-500">
+              <p className="mt-2 text-[11px] font-medium text-ink-faint">
                 Scheduled for {formatScheduledDisplay(scheduledAt)}.
               </p>
             )
@@ -2468,323 +2469,243 @@ const SelectVehicle = () => {
         </div>
       </div>
 
-      <AnimatePresence>
-        {previewVehicle && (
-          <React.Fragment key="vehicle-preview-modal">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setPreviewVehicleId('')}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] max-w-lg mx-auto"
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-[28px] px-5 pt-4 pb-8 z-[101]"
-            >
-              <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5" />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-orange-500 mb-1">Vehicle details</p>
-                  <h3 className="text-[20px] font-extrabold text-slate-900">{previewVehicle.name}</h3>
-                  <p className="mt-1 text-[12px] font-bold text-slate-500">
-                    {previewVehicle.sublabel || 'Comfortable ride option for this route.'}
-                  </p>
-                </div>
-                <div className="flex h-16 w-16 items-center justify-center rounded-[18px] bg-slate-50">
-                  <img src={previewVehicle.icon} alt={previewVehicle.name} className="h-12 w-14 object-contain" draggable={false} onError={(e) => { e.target.onerror = null; e.target.src = CarIcon; }} />
-                </div>
+      <BottomSheet
+        open={Boolean(previewVehicle)}
+        onClose={() => setPreviewVehicleId('')}
+        title={previewVehicle?.name}
+        subtitle={previewVehicle?.sublabel || 'Comfortable ride option for this route.'}
+      >
+        {previewVehicle ? (
+          <>
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-2xs font-black uppercase tracking-wider text-brand">Vehicle details</p>
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-card bg-surface-sunken">
+                <img src={previewVehicle.icon} alt={previewVehicle.name} className="h-12 w-14 object-contain" draggable={false} onError={(e) => { e.target.onerror = null; e.target.src = CarIcon; }} />
               </div>
+            </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-[18px] border border-slate-100 bg-slate-50/70 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Estimated fare</p>
-                  <p className="mt-1 text-[17px] font-extrabold text-slate-900">
-                    {isFarePending ? 'Calculating...' : formatVehicleFare(previewVehicle)}
-                  </p>
-                </div>
-                <div className="rounded-[18px] border border-slate-100 bg-slate-50/70 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Seats</p>
-                  <p className="mt-1 text-[17px] font-extrabold text-slate-900">{previewVehicle.capacity}</p>
-                </div>
-                <div className="rounded-[18px] border border-slate-100 bg-slate-50/70 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Booking type</p>
-                  <p className="mt-1 text-[14px] font-extrabold text-slate-900">{formatDispatchLabel(previewVehicle)}</p>
-                </div>
-                <div className="rounded-[18px] border border-slate-100 bg-slate-50/70 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Availability</p>
-                  <p className="mt-1 text-[14px] font-extrabold text-slate-900">
-                    {rideMode === 'schedule'
-                      ? 'Can be scheduled'
-                      : previewAvailability.totalDrivers
-                        ? `${previewAvailability.totalDrivers} nearby`
-                        : 'Unavailable now'}
-                  </p>
-                </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-card border border-line bg-surface-sunken px-4 py-3">
+                <p className="text-2xs font-black uppercase tracking-[0.14em] text-ink-faint">Estimated fare</p>
+                <p className="mt-1 text-[17px] font-extrabold text-ink">
+                  {isFarePending ? 'Calculating...' : formatVehicleFare(previewVehicle)}
+                </p>
               </div>
-
-              <div className="mt-4 rounded-[20px] border border-orange-100 bg-orange-50/60 px-4 py-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-500">Trip snapshot</p>
-                <p className="mt-2 text-[12px] font-bold leading-5 text-slate-700">
+              <div className="rounded-card border border-line bg-surface-sunken px-4 py-3">
+                <p className="text-2xs font-black uppercase tracking-[0.14em] text-ink-faint">Seats</p>
+                <p className="mt-1 text-[17px] font-extrabold text-ink">{previewVehicle.capacity}</p>
+              </div>
+              <div className="rounded-card border border-line bg-surface-sunken px-4 py-3">
+                <p className="text-2xs font-black uppercase tracking-[0.14em] text-ink-faint">Booking type</p>
+                <p className="mt-1 text-[14px] font-extrabold text-ink">{formatDispatchLabel(previewVehicle)}</p>
+              </div>
+              <div className="rounded-card border border-line bg-surface-sunken px-4 py-3">
+                <p className="text-2xs font-black uppercase tracking-[0.14em] text-ink-faint">Availability</p>
+                <p className="mt-1 text-[14px] font-extrabold text-ink">
                   {rideMode === 'schedule'
-                    ? 'This vehicle can be reserved for a later trip at your chosen time.'
+                    ? 'Can be scheduled'
                     : previewAvailability.totalDrivers
-                      ? formatAvailabilityLine(previewAvailability)
-                      : 'No driver is currently online for this vehicle around your pickup.'}
+                      ? `${previewAvailability.totalDrivers} nearby`
+                      : 'Unavailable now'}
                 </p>
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => setPreviewVehicleId('')}
-                className="mt-5 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-[13px] font-black uppercase tracking-[0.14em] text-slate-700"
-              >
-                Close
-              </button>
-            </motion.div>
-          </React.Fragment>
+            <div className="mt-4 rounded-card border border-brand/25 bg-brand-soft px-4 py-4">
+              <p className="text-2xs font-black uppercase tracking-[0.14em] text-brand">Trip snapshot</p>
+              <p className="mt-2 text-[12px] font-bold leading-5 text-ink-soft">
+                {rideMode === 'schedule'
+                  ? 'This vehicle can be reserved for a later trip at your chosen time.'
+                  : previewAvailability.totalDrivers
+                    ? formatAvailabilityLine(previewAvailability)
+                    : 'No driver is currently online for this vehicle around your pickup.'}
+              </p>
+            </div>
+
+            <Button block size="lg" variant="secondary" className="mt-5 uppercase tracking-[0.14em]" onClick={() => setPreviewVehicleId('')}>
+              Close
+            </Button>
+          </>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        open={Boolean(showBidModal && selectedVehicle?.supportsBidding && shouldUseDriverBidding)}
+        onClose={() => setShowBidModal(false)}
+        title="Choose your max fare"
+        subtitle={selectedVehicle ? `Drivers can send offers up to this amount for ${selectedVehicle.name}.` : ''}
+      >
+        <p className="text-2xs font-black uppercase tracking-wider text-brand">Bid fare</p>
+
+        <div className="mt-5 rounded-card border border-brand/25 bg-brand-soft px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-2xs font-black uppercase tracking-[0.14em] text-brand">Bid Range</p>
+              <p className="mt-1 text-[13px] font-bold text-ink">Adjust the fare ceiling inside the admin-configured bidding range.</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xs font-black uppercase tracking-[0.14em] text-ink-faint">Max fare</p>
+              <p className="mt-1 text-[20px] font-black text-ink">{formatCurrency(selectedBidCeiling)}</p>
+            </div>
+          </div>
+
+          <input
+            type="range"
+            min={0}
+            max={selectedBidSteps}
+            step={1}
+            value={Math.min(bidStepCount, selectedBidSteps)}
+            onChange={(event) => setBidStepCount(Number(event.target.value || 0))}
+            className="ds-field mt-4 h-2 w-full cursor-pointer accent-[var(--color-brand)]"
+          />
+
+          <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-ink-faint">
+            <span>Floor {formatCurrency(selectedBidFloorFare)}</span>
+            <span>Ceiling {formatCurrency(selectedBidCeilingMaxFare)}</span>
+          </div>
+        </div>
+
+        <div className="mt-5 flex gap-3">
+          <Button block size="lg" variant="secondary" className="uppercase tracking-[0.14em]" onClick={() => setShowBidModal(false)}>
+            Cancel
+          </Button>
+          <Button block size="lg" className="uppercase tracking-[0.14em]" onClick={proceedToBooking}>
+            Send Bid
+          </Button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={showCouponModal}
+        onClose={() => setShowCouponModal(false)}
+        title="Apply for this zone"
+        subtitle="Only coupons created for this service location show here."
+      >
+        <p className="text-2xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Coupons</p>
+
+        <div className="mt-5 flex gap-2">
+          <Input
+            type="text"
+            value={promoCodeInput}
+            onChange={(event) => {
+              setPromoCodeInput(event.target.value.toUpperCase());
+              setPromoError('');
+              setPromoFeedback('');
+            }}
+            placeholder="Enter coupon code"
+            wrapperClassName="min-w-0 flex-1"
+          />
+          <Button
+            size="lg"
+            className="shrink-0 uppercase tracking-[0.14em]"
+            disabled={Boolean(applyingPromoCode) || !selectedVehicle}
+            onClick={async () => {
+              const applied = await applyPromoCode(promoCodeInput);
+              if (applied) {
+                setShowCouponModal(false);
+              }
+            }}
+          >
+            {applyingPromoCode ? 'Applying' : 'Apply'}
+          </Button>
+        </div>
+
+        {(promoError || promoFeedback) && (
+          <p className={`mt-3 text-[11px] font-semibold ${promoError ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            {promoError || promoFeedback}
+          </p>
         )}
 
-        {showBidModal && selectedVehicle?.supportsBidding && shouldUseDriverBidding && (
-          <React.Fragment key="bid-modal">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowBidModal(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] max-w-lg mx-auto"
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-[28px] px-5 pt-4 pb-10 z-[101]"
-            >
-              <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5" />
-              <p className="text-[10px] font-bold uppercase tracking-wider text-orange-500 mb-1">Bid fare</p>
-              <h3 className="text-[18px] font-bold text-slate-900">Choose your max fare</h3>
-              <p className="mt-1 text-[12px] font-bold text-slate-500">
-                Drivers can send offers up to this amount for {selectedVehicle.name}.
-              </p>
+        <div className="mt-5 max-h-[46vh] space-y-2 overflow-y-auto pr-1">
+          {isLoadingPromos ? (
+            <div className="flex items-center gap-2 rounded-card border border-line bg-surface-sunken px-4 py-4">
+              <LoaderCircle size={16} className="animate-spin text-ink-faint" />
+              <span className="text-[12px] font-semibold text-ink-soft">Loading available coupons</span>
+            </div>
+          ) : availablePromos.length ? (
+            availablePromos.map((promo) => {
+              const isApplied = String(appliedPromo?.promo?.code || '').toUpperCase() === String(promo?.code || '').toUpperCase();
 
-              <div className="mt-5 rounded-[20px] border border-orange-100 bg-orange-50/60 px-4 py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-orange-500">Bid Range</p>
-                    <p className="mt-1 text-[13px] font-bold text-slate-900">Adjust the fare ceiling inside the admin-configured bidding range.</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Max fare</p>
-                    <p className="mt-1 text-[20px] font-black text-slate-900">{formatCurrency(selectedBidCeiling)}</p>
+              return (
+                <div
+                  key={promo?._id || promo?.code}
+                  className={`rounded-card border px-4 py-4 ${
+                    isApplied ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-line bg-surface-sunken'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-[14px] font-black text-ink">{promo?.code}</p>
+                        {isApplied && <CheckCircle2 size={14} className="text-emerald-500" strokeWidth={2.6} />}
+                      </div>
+                      <p className="mt-1 text-[11px] font-medium text-ink-soft">{formatPromoSummary(promo)}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={isApplied ? 'primary' : 'secondary'}
+                      className="shrink-0 rounded-pill uppercase tracking-[0.14em]"
+                      disabled={Boolean(applyingPromoCode)}
+                      onClick={async () => {
+                        const applied = await applyPromoCode(promo?.code);
+                        if (applied) {
+                          setShowCouponModal(false);
+                        }
+                      }}
+                    >
+                      {applyingPromoCode === String(promo?.code || '').toUpperCase() ? 'Applying' : isApplied ? 'Applied' : 'Use'}
+                    </Button>
                   </div>
                 </div>
-
-                <input
-                  type="range"
-                  min={0}
-                  max={selectedBidSteps}
-                  step={1}
-                  value={Math.min(bidStepCount, selectedBidSteps)}
-                  onChange={(event) => setBidStepCount(Number(event.target.value || 0))}
-                  className="mt-4 h-2 w-full cursor-pointer accent-orange-500"
-                />
-
-                <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-slate-500">
-                  <span>Floor {formatCurrency(selectedBidFloorFare)}</span>
-                  <span>Ceiling {formatCurrency(selectedBidCeilingMaxFare)}</span>
-                </div>
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowBidModal(false)}
-                  className="flex-1 rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-[13px] font-black uppercase tracking-[0.14em] text-slate-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={proceedToBooking}
-                  className="flex-1 rounded-[18px] bg-[#f8e001] px-4 py-3 text-[13px] font-black uppercase tracking-[0.14em] text-slate-900 shadow-[0_12px_28px_-4px_rgba(248,224,1,0.4)]"
-                >
-                  Send Bid
-                </button>
-              </div>
-            </motion.div>
-          </React.Fragment>
-        )}
-
-        <AnimatePresence>
-        {showCouponModal && (
-          <React.Fragment key="coupon-modal">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCouponModal(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] max-w-lg mx-auto"
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-[28px] px-5 pt-4 pb-8 z-[101]"
-            >
-              <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5" />
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-1">Coupons</p>
-              <h3 className="text-[18px] font-bold text-slate-900">Apply for this zone</h3>
-              <p className="mt-1 text-[12px] font-bold text-slate-500">
-                Only coupons created for this service location show here.
+              );
+            })
+          ) : (
+            <div className="rounded-card border border-line bg-surface-sunken px-4 py-4">
+              <p className="text-[12px] font-semibold text-ink-soft">
+                No coupons are active for this zone right now.
               </p>
+            </div>
+          )}
+        </div>
+      </BottomSheet>
 
-              <div className="mt-5 flex gap-2">
-                <input
-                  type="text"
-                  value={promoCodeInput}
-                  onChange={(event) => {
-                    setPromoCodeInput(event.target.value.toUpperCase());
-                    setPromoError('');
-                    setPromoFeedback('');
-                  }}
-                  placeholder="Enter coupon code"
-                  className="min-w-0 flex-1 rounded-[16px] border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-900 outline-none transition focus:border-emerald-300"
-                />
-                <button
-                  type="button"
-                  disabled={Boolean(applyingPromoCode) || !selectedVehicle}
-                  onClick={async () => {
-                    const applied = await applyPromoCode(promoCodeInput);
-                    if (applied) {
-                      setShowCouponModal(false);
-                    }
-                  }}
-                  className="rounded-[16px] bg-slate-950 px-4 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-60"
-                >
-                  {applyingPromoCode ? 'Applying' : 'Apply'}
-                </button>
+      <BottomSheet
+        open={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        title="Select Method"
+        subtitle="Payment"
+      >
+        <div className="space-y-2.5">
+          {paymentOptions.map(({ stateValue, label, sub, Icon, bg, color }) => (
+            <motion.button
+              key={stateValue}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                setPaymentMethod(stateValue);
+                setShowPaymentModal(false);
+              }}
+              className={`w-full flex items-center gap-3.5 p-4 rounded-card border-2 transition-all ${
+                paymentMethod === stateValue ? 'border-brand/40 bg-brand-soft' : 'border-line bg-surface-sunken'
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-control ${bg} flex items-center justify-center shrink-0`}>
+                <Icon size={18} className={color} strokeWidth={2} />
               </div>
-
-              {(promoError || promoFeedback) && (
-                <p className={`mt-3 text-[11px] font-semibold ${promoError ? 'text-rose-500' : 'text-emerald-600'}`}>
-                  {promoError || promoFeedback}
-                </p>
+              <div className="flex-1 text-left">
+                <p className="text-[14px] font-bold text-ink">{label}</p>
+                <p className="text-[11px] font-bold text-ink-faint">{sub}</p>
+              </div>
+              {paymentMethod === stateValue && (
+                <div className="w-5 h-5 rounded-pill bg-brand flex items-center justify-center shrink-0">
+                  <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                    <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
               )}
-
-              <div className="mt-5 max-h-[46vh] space-y-2 overflow-y-auto pr-1">
-                {isLoadingPromos ? (
-                  <div className="flex items-center gap-2 rounded-[18px] border border-slate-100 bg-slate-50 px-4 py-4">
-                    <LoaderCircle size={16} className="animate-spin text-slate-500" />
-                    <span className="text-[12px] font-semibold text-slate-600">Loading available coupons</span>
-                  </div>
-                ) : availablePromos.length ? (
-                  availablePromos.map((promo) => {
-                    const isApplied = String(appliedPromo?.promo?.code || '').toUpperCase() === String(promo?.code || '').toUpperCase();
-
-                    return (
-                      <div
-                        key={promo?._id || promo?.code}
-                        className={`rounded-[18px] border px-4 py-4 ${
-                          isApplied ? 'border-emerald-200 bg-emerald-50/70' : 'border-slate-100 bg-slate-50/70'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate text-[14px] font-black text-slate-900">{promo?.code}</p>
-                              {isApplied && <CheckCircle2 size={14} className="text-emerald-600" strokeWidth={2.6} />}
-                            </div>
-                            <p className="mt-1 text-[11px] font-medium text-slate-600">{formatPromoSummary(promo)}</p>
-                          </div>
-                          <button
-                            type="button"
-                            disabled={Boolean(applyingPromoCode)}
-                            onClick={async () => {
-                              const applied = await applyPromoCode(promo?.code);
-                              if (applied) {
-                                setShowCouponModal(false);
-                              }
-                            }}
-                            className={`shrink-0 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] ${
-                              isApplied ? 'bg-emerald-600 text-white' : 'bg-white text-slate-800 border border-slate-200'
-                            } disabled:opacity-60`}
-                          >
-                            {applyingPromoCode === String(promo?.code || '').toUpperCase() ? 'Applying' : isApplied ? 'Applied' : 'Use'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-[18px] border border-slate-100 bg-slate-50 px-4 py-4">
-                    <p className="text-[12px] font-semibold text-slate-600">
-                      No coupons are active for this zone right now.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </React.Fragment>
-        )}
-        {showPaymentModal && (
-          <React.Fragment key="payment-modal">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowPaymentModal(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] max-w-lg mx-auto"
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white rounded-t-[28px] px-5 pt-4 pb-10 z-[101]"
-            >
-              <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5" />
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Payment</p>
-              <h3 className="text-[18px] font-bold text-slate-900 mb-5">Select Method</h3>
-              <div className="space-y-2.5">
-                {paymentOptions.map(({ id, stateValue, label, sub, Icon, bg, color }) => (
-                  <motion.button
-                    key={stateValue}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      setPaymentMethod(stateValue);
-                      setShowPaymentModal(false);
-                    }}
-                    className={`w-full flex items-center gap-3.5 p-4 rounded-[18px] border-2 transition-all ${
-                      paymentMethod === stateValue ? 'border-orange-200 bg-orange-50/40' : 'border-slate-100 bg-slate-50/50'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-[12px] ${bg} flex items-center justify-center shrink-0`}>
-                      <Icon size={18} className={color} strokeWidth={2} />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-[14px] font-bold text-slate-900">{label}</p>
-                      <p className="text-[11px] font-bold text-slate-400">{sub}</p>
-                    </div>
-                    {paymentMethod === stateValue && (
-                      <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shrink-0">
-                        <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-                          <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    )}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          </React.Fragment>
-        )}
-        </AnimatePresence>
-      </AnimatePresence>
+            </motion.button>
+          ))}
+        </div>
+      </BottomSheet>
     </div>
   );
 };

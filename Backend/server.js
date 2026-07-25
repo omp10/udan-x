@@ -22,10 +22,12 @@ const bootstrap = async () => {
   const app = createApp();
   const httpServer = createServer(app);
 
-  configureTaxiSocketServer(httpServer);
-  await restoreScheduledDispatches();
-  startDispatchRecoveryLoop();
-  startSubscriptionRenewalWorker();
+  // Socket server initialization has been moved to socket-server.js
+  // configureTaxiSocketServer(httpServer);
+  // Schedulers have been moved to scheduler-server.js
+  // await restoreScheduledDispatches();
+  // startDispatchRecoveryLoop();
+  // startSubscriptionRenewalWorker();
 
   httpServer.listen(env.port, () => {
     const redisStatus = getRedisStatus();

@@ -44,6 +44,7 @@ if (!resolvedJwtSecret) {
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number.isInteger(Number(process.env.PORT)) ? Number(process.env.PORT) : 4000,
+  socketPort: Number.isInteger(Number(process.env.SOCKET_PORT)) ? Number(process.env.SOCKET_PORT) : 5001,
   mongoUri: process.env.MONGODB_URI,
   mongoDbName: process.env.MONGODB_DB_NAME || 'appzeto_taxi',
   jwtSecret: resolvedJwtSecret,

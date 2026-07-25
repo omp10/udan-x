@@ -16,7 +16,6 @@ import {
   BusPreview,
   BusSeats,
   CabHome,
-  CabSharing,
   ComingSoon,
   DeleteAccount,
   IntercityConfirm,
@@ -125,7 +124,6 @@ const userRoutes = (
       <Route path="/taxi/user/intercity/vehicle" element={<IntercityVehicle />} />
       <Route path="/taxi/user/intercity/details" element={<IntercityDetails />} />
       <Route path="/taxi/user/intercity/confirm" element={<IntercityConfirm />} />
-      <Route path="/taxi/user/cab-sharing" element={<CabSharing />} />
       <Route path="/taxi/user/cab" element={<CabHome />} />
       <Route path="/taxi/user/cab/shared" element={<SharedTaxi />} />
       <Route path="/taxi/user/cab/shared/seats" element={<SharedTaxiSeats />} />

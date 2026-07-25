@@ -88,16 +88,21 @@ const flattenSearchEntries = (items = [], parentLabels = []) =>
     return [];
   });
 
+// No stored profile means we do not know who this is yet, so grant nothing.
+// This used to return permissions:['*'], which rendered the full superadmin
+// sidebar to anyone until the login redirect fired.
+const ANONYMOUS_ADMIN_PROFILE = { admin_type: '', permissions: [], name: 'Admin' };
+
 const readAdminProfile = () => {
   if (typeof window === 'undefined') {
-    return { admin_type: 'superadmin', permissions: ['*'], name: 'Admin' };
+    return ANONYMOUS_ADMIN_PROFILE;
   }
 
   try {
     const parsed = JSON.parse(window.localStorage.getItem('adminInfo') || 'null');
-    return parsed || { admin_type: 'superadmin', permissions: ['*'], name: 'Admin' };
+    return parsed || ANONYMOUS_ADMIN_PROFILE;
   } catch {
-    return { admin_type: 'superadmin', permissions: ['*'], name: 'Admin' };
+    return ANONYMOUS_ADMIN_PROFILE;
   }
 };
 
@@ -1038,7 +1043,6 @@ const AdminLayout = () => {
             subItems: [
               { label: 'General Settings', path: '/admin/settings/business/general', permission: 'settings.view' },
               { label: 'Customization Settings', path: '/admin/settings/business/customization', permission: 'settings.view' },
-              { label: 'App Branding & Logo', path: '/admin/settings/business/branding', permission: 'settings.view' },
               { label: 'Transport Ride Settings', path: '/admin/settings/business/transport-ride', permission: 'settings.view' },
               { label: 'Bid Ride Settings', path: '/admin/settings/business/bid-ride', permission: 'settings.view' },
             ],

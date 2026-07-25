@@ -6,7 +6,6 @@ import {
   MapPin, Star, Package, Wrench, Gift, Trash2, Check, BusFront, 
   Settings, CreditCard, Heart, Map, MessageSquare, History, Phone, Sun, Moon
 } from 'lucide-react';
-// ... removed BottomNavbar import ...
 
 import { clearLocalUserSession, getLocalUserToken, userAuthService } from '../services/authService';
 import { clearCurrentRide } from '../services/currentRideService';

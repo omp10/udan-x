@@ -15,6 +15,9 @@ const adminBusinessSettingSchema = new mongoose.Schema(
     user_home_settings: { type: mongoose.Schema.Types.Mixed, default: {} },
     goods_settings: { type: mongoose.Schema.Types.Mixed, default: {} },
     subscription: { type: mongoose.Schema.Types.Mixed, default: { mode: 'commissionOnly' } },
+    // Platform-wide commission defaults, edited by the admin Commission page and
+    // read by admin/services/commissionService.js.
+    commission: { type: mongoose.Schema.Types.Mixed, default: {} },
     referral: {
       type: mongoose.Schema.Types.Mixed,
       default: {

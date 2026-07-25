@@ -18,6 +18,24 @@ import {
   createAppModule,
   createEmployee,
   createGoodsType,
+  updateSubscriptionPlan,
+  deleteSubscriptionPlan,
+  getExpiringSubscriptions,
+  getRecentSubscriptions,
+  getCommissionSettings,
+  updateCommissionSettings,
+  getCommissionReport,
+  downloadCommissionReport,
+  getDriverPayoutReport,
+  getFleetPayoutReport,
+  getWarehouses,
+  createWarehouse,
+  updateWarehouse,
+  deleteWarehouse,
+  getHelpers,
+  createHelper,
+  updateHelper,
+  deleteHelper,
   createDriver,
   createDriverNeededDocument,
   bulkImportDrivers,
@@ -247,8 +265,11 @@ import {
 } from '../controllers/poolingController.js';
 import { promotionsRouter } from '../promotions/routes/index.js';
 import { listSafetyAlerts, resolveSafetyAlert } from '../../safety/controllers/safetyController.js';
+import { requireAdminPermission } from '../services/adminAccessService.js';
 
 export const adminRouter = Router();
+
+const requireWalletAccess = requireAdminPermission('wallet.view', 'wallets');
 
 adminRouter.get('/admin', getAdminStatus);
 adminRouter.get('/admin/status', getAdminStatus);
@@ -257,8 +278,21 @@ adminRouter.post('/admin/forgot-password', otpSendRateLimit, forgotPassword);
 adminRouter.post('/admin/verify-reset-otp', otpVerifyRateLimit, verifyResetOtp);
 adminRouter.post('/admin/reset-password', otpVerifyRateLimit, resetPassword);
 
-// Public route for app branding/settings
-adminRouter.get('/admin/general-settings/:category', getGeneralSettingsCategory);
+// Public route for app branding only. Registered before the auth guard, so it
+// must whitelist: without this, `transport_ride` (dispatch radii/timeouts) and
+// `bid_ride` were readable anonymously. Non-branding categories fall through via
+// next('route') to the authenticated registration further down this router.
+const PUBLIC_GENERAL_SETTINGS_CATEGORIES = new Set(['general', 'customize']);
+
+adminRouter.get('/admin/general-settings/:category', (req, res, next) => {
+  const category = String(req.params.category || '').trim().toLowerCase();
+
+  if (!PUBLIC_GENERAL_SETTINGS_CATEGORIES.has(category)) {
+    return next('route');
+  }
+
+  return getGeneralSettingsCategory(req, res, next);
+});
 
 adminRouter.use('/admin', authenticate(['admin']));
 
@@ -304,21 +338,24 @@ adminRouter.get('/admin/drivers/:id', getDriver);
 adminRouter.patch('/admin/drivers/:id', updateDriver);
 adminRouter.patch('/admin/drivers/update-password/:id', updateDriverPassword);
 adminRouter.delete('/admin/drivers/:id', deleteDriver);
-adminRouter.post('/admin/wallet/users/:id/adjust', adjustUserWallet);
-adminRouter.get('/admin/wallet/users/:id/history', getUserWalletHistory);
+// Every route below moves money or exposes a ledger. `authenticate(['admin'])`
+// alone let any subadmin — even one holding only dashboard.view — credit wallets
+// and approve withdrawals, so each one also needs the wallet.view gate.
+adminRouter.post('/admin/wallet/users/:id/adjust', requireWalletAccess, adjustUserWallet);
+adminRouter.get('/admin/wallet/users/:id/history', requireWalletAccess, getUserWalletHistory);
 
-adminRouter.post('/admin/wallet/drivers/:id/adjust', adjustDriverWallet);
-adminRouter.get('/admin/wallet/drivers/:id/history', listDriverWalletHistory);
+adminRouter.post('/admin/wallet/drivers/:id/adjust', requireWalletAccess, adjustDriverWallet);
+adminRouter.get('/admin/wallet/drivers/:id/history', requireWalletAccess, listDriverWalletHistory);
 
-adminRouter.post('/admin/wallet/owners/:id/adjust', adjustOwnerWallet);
-adminRouter.get('/admin/wallet/owners/:id/history', listOwnerWalletHistory);
+adminRouter.post('/admin/wallet/owners/:id/adjust', requireWalletAccess, adjustOwnerWallet);
+adminRouter.get('/admin/wallet/owners/:id/history', requireWalletAccess, listOwnerWalletHistory);
 
-adminRouter.get('/admin/wallet/drivers/negative-balance', authenticate(['admin']), getNegativeBalanceDrivers);
-adminRouter.get('/admin/wallet/drivers/withdrawals', authenticate(['admin']), getDriverWithdrawalSummaries);
-adminRouter.get('/admin/wallet/drivers/withdrawals/request/:requestId', authenticate(['admin']), getDriverWithdrawalContextByRequestId);
-adminRouter.get('/admin/wallet/drivers/:id/withdrawals', authenticate(['admin']), getDriverWithdrawals);
-adminRouter.patch('/admin/wallet/drivers/withdrawals/:requestId/approve', authenticate(['admin']), approveDriverWithdrawalRequest);
-adminRouter.patch('/admin/wallet/drivers/withdrawals/:requestId/reject', authenticate(['admin']), rejectDriverWithdrawalRequest);
+adminRouter.get('/admin/wallet/drivers/negative-balance', authenticate(['admin']), requireWalletAccess, getNegativeBalanceDrivers);
+adminRouter.get('/admin/wallet/drivers/withdrawals', authenticate(['admin']), requireWalletAccess, getDriverWithdrawalSummaries);
+adminRouter.get('/admin/wallet/drivers/withdrawals/request/:requestId', authenticate(['admin']), requireWalletAccess, getDriverWithdrawalContextByRequestId);
+adminRouter.get('/admin/wallet/drivers/:id/withdrawals', authenticate(['admin']), requireWalletAccess, getDriverWithdrawals);
+adminRouter.patch('/admin/wallet/drivers/withdrawals/:requestId/approve', authenticate(['admin']), requireWalletAccess, approveDriverWithdrawalRequest);
+adminRouter.patch('/admin/wallet/drivers/withdrawals/:requestId/reject', authenticate(['admin']), requireWalletAccess, rejectDriverWithdrawalRequest);
 adminRouter.get('/admin/driver-ratings', authenticate(['admin']), getDriverRatings);
 adminRouter.get('/admin/driver-ratings/:id', authenticate(['admin']), getDriverRatingDetail);
 
@@ -327,6 +364,12 @@ adminRouter.post('/admin/driver-subscriptions/plans/create', createSubscriptionP
 adminRouter.get('/admin/driver-subscriptions/settings', getSubscriptionSettings);
 adminRouter.post('/admin/driver-subscriptions/settings', updateSubscriptionSettings);
 adminRouter.get('/admin/partner-subscriptions/analytics', getPartnerSubscriptionsAnalytics);
+// No update/delete route existed for any plan, so the admin page's edit, delete
+// and activate actions all threw "is not a function".
+adminRouter.patch('/admin/subscriptions/plans/:id', updateSubscriptionPlan);
+adminRouter.delete('/admin/subscriptions/plans/:id', deleteSubscriptionPlan);
+adminRouter.get('/admin/partner-subscriptions/expiring', getExpiringSubscriptions);
+adminRouter.get('/admin/partner-subscriptions/recent', getRecentSubscriptions);
 adminRouter.get('/admin/user-subscriptions/plans/list', getCustomerSubscriptionPlans);
 adminRouter.post('/admin/user-subscriptions/plans/create', createCustomerSubscriptionPlan);
 
@@ -403,6 +446,29 @@ adminRouter.get('/admin/goods-types', getGoodsTypes);
 adminRouter.post('/admin/goods-types', createGoodsType);
 adminRouter.patch('/admin/goods-types/:id', updateGoodsType);
 adminRouter.delete('/admin/goods-types/:id', deleteGoodsType);
+
+const requireGoodsAccess = requireAdminPermission('goods_types.view', 'goods management');
+const requireEarningsAccess = requireAdminPermission('earnings.view', 'commission and earnings');
+
+// Commission settings + reports. The admin Commission pages called
+// getCommissionSettings/getCommissionReport/getDriverPayoutReport/getFleetPayoutReport
+// which never existed, so they rendered hardcoded 20/15/10 and permanent zeros.
+adminRouter.get('/admin/commission/settings', requireEarningsAccess, getCommissionSettings);
+adminRouter.patch('/admin/commission/settings', requireEarningsAccess, updateCommissionSettings);
+adminRouter.get('/admin/commission/report', requireEarningsAccess, getCommissionReport);
+adminRouter.get('/admin/commission/report/download', requireEarningsAccess, downloadCommissionReport);
+adminRouter.get('/admin/commission/payouts/drivers', requireEarningsAccess, getDriverPayoutReport);
+adminRouter.get('/admin/commission/payouts/fleet-owners', requireEarningsAccess, getFleetPayoutReport);
+
+adminRouter.get('/admin/warehouses', requireGoodsAccess, getWarehouses);
+adminRouter.post('/admin/warehouses', requireGoodsAccess, createWarehouse);
+adminRouter.patch('/admin/warehouses/:id', requireGoodsAccess, updateWarehouse);
+adminRouter.delete('/admin/warehouses/:id', requireGoodsAccess, deleteWarehouse);
+
+adminRouter.get('/admin/helpers', requireGoodsAccess, getHelpers);
+adminRouter.post('/admin/helpers', requireGoodsAccess, createHelper);
+adminRouter.patch('/admin/helpers/:id', requireGoodsAccess, updateHelper);
+adminRouter.delete('/admin/helpers/:id', requireGoodsAccess, deleteHelper);
 adminRouter.get('/admin/types/rental-packages', getRentalPackageTypes);
 adminRouter.post('/admin/types/rental-packages', createRentalPackageType);
 adminRouter.patch('/admin/types/rental-packages/:id', updateRentalPackageType);
@@ -511,10 +577,13 @@ adminRouter.post('/admin/integration-settings/recharge-api/test', runRechargeApi
 adminRouter.get('/admin/general-settings/:category', getGeneralSettingsCategory);
 adminRouter.patch('/admin/general-settings/:category', updateGeneralSettingsCategory);
 
+// These sit outside the `/admin` prefix, so the `adminRouter.use('/admin', ...)`
+// guard above does NOT cover them — each write needs its own authenticate().
+// The GETs stay public: apps fetch onboarding screens before anyone logs in.
 adminRouter.get('/on-boarding', getUserOnboarding);
-adminRouter.post('/on-boarding', createOnboardingScreen);
-adminRouter.patch('/on-boarding/:id', updateOnboardingScreen);
-adminRouter.delete('/on-boarding/:id', deleteOnboardingScreen);
+adminRouter.post('/on-boarding', authenticate(['admin']), createOnboardingScreen);
+adminRouter.patch('/on-boarding/:id', authenticate(['admin']), updateOnboardingScreen);
+adminRouter.delete('/on-boarding/:id', authenticate(['admin']), deleteOnboardingScreen);
 adminRouter.get('/on-boarding-driver', getDriverOnboarding);
 adminRouter.get('/on-boarding-owner', getOwnerOnboarding);
 

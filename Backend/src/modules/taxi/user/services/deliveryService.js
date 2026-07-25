@@ -2,6 +2,7 @@ import { ApiError } from '../../../../utils/ApiError.js';
 import { normalizePoint } from '../../../../utils/geo.js';
 import { GoodsType } from '../../admin/models/GoodsType.js';
 import { Vehicle } from '../../admin/models/Vehicle.js';
+import { resolveHelperCharge } from '../../admin/services/goodsLogisticsService.js';
 import { startDispatchFlow } from '../../services/dispatchService.js';
 import { Delivery } from '../models/Delivery.js';
 import {
@@ -177,6 +178,8 @@ export const createDeliveryRecord = async ({
   vehicleIconUrl,
   paymentMethod,
   parcel,
+  scheduledAt,
+  stops,
 }) => {
   await ensureDeliveryVehicleAllowed({ vehicleTypeId, parcel });
   const pickupCoords = normalizePoint(pickup, 'pickup');
@@ -185,7 +188,23 @@ export const createDeliveryRecord = async ({
     ? await Vehicle.findById(vehicleTypeId).select('delivery_distance_pricing service_tax').lean()
     : null;
   const fareBreakdown = computeDeliveryFareBreakdown({ vehicle, pickupCoords, dropCoords });
-  const resolvedFare = fareBreakdown.total > 0 ? fareBreakdown.total : Number(fare || 0);
+
+  // Helper charges come from the Helper collection, not the request body — the
+  // client used to send loadingCharge/unloadingCharge and we billed them verbatim.
+  const helperSelection = await resolveHelperCharge(parcel?.helper?.type || parcel?.helperType);
+  const helperPricing = {
+    type: helperSelection.helperType,
+    loadingCharge: ['loading', 'both'].includes(helperSelection.helperType)
+      ? Number(helperSelection.loadingRate || 0)
+      : 0,
+    unloadingCharge: ['unloading', 'both'].includes(helperSelection.helperType)
+      ? Number(helperSelection.unloadingRate || 0)
+      : 0,
+    totalCharge: Number(helperSelection.charge || 0),
+  };
+
+  const baseFare = fareBreakdown.total > 0 ? fareBreakdown.total : Number(fare || 0);
+  const resolvedFare = roundCurrency(baseFare + helperPricing.totalCharge);
 
   const ride = await createRideRecord({
     userId,
@@ -201,7 +220,12 @@ export const createDeliveryRecord = async ({
     paymentMethod,
     transport_type: 'delivery',
     serviceType: 'parcel',
-    parcel,
+    parcel: { ...(parcel || {}), helper: helperPricing },
+    // Ride has supported scheduledAt all along (including the timer dispatch and
+    // crash-recovery sweep); the goods path simply never forwarded it, so
+    // "scheduled goods booking" was unreachable.
+    scheduledAt,
+    stops,
   });
 
   await startDispatchFlow(ride);

@@ -5,8 +5,13 @@ import { Delivery } from '../../user/models/Delivery.js';
 import { Ride } from '../../user/models/Ride.js';
 import { User } from '../../user/models/User.js';
 import { emitToAdmins } from '../../services/dispatchService.js';
+import { sendPushNotificationToEntities } from '../../services/pushNotificationService.js';
+import { sendTransactionalSms } from '../../services/smsService.js';
+import { normalizeEmergencyContacts } from '../../common/utils/emergencyContacts.js';
 
 const cleanString = (value = '') => String(value || '').trim();
+
+const maskPhone = (phone = '') => `${'*'.repeat(6)}${String(phone).slice(-4)}`;
 
 const normalizeCoordinates = (value) => {
   if (Array.isArray(value) && value.length >= 2) {
@@ -61,6 +66,16 @@ const serializeSafetyAlert = (alert = {}) => {
           }
         : null,
     notes: cleanString(alert?.notes),
+    notifiedContacts: Array.isArray(alert?.notifiedContacts)
+      ? alert.notifiedContacts.map((contact) => ({
+          name: cleanString(contact?.name),
+          phone: cleanString(contact?.phone),
+          channels: Array.isArray(contact?.channels) ? contact.channels.map(cleanString) : [],
+          delivered: Boolean(contact?.delivered),
+          error: cleanString(contact?.error),
+          notifiedAt: contact?.notifiedAt || null,
+        }))
+      : [],
     createdAt: alert?.createdAt || null,
     updatedAt: alert?.updatedAt || null,
     resolvedAt: alert?.resolvedAt || null,
@@ -148,10 +163,10 @@ const createAlertRecord = async ({
 }) => {
   const { ride, delivery } = await readRideContext({ rideId, deliveryId });
   const actorUser = sourceApp === 'user'
-    ? await User.findById(authId).select('name phone').lean()
+    ? await User.findById(authId).select('name phone emergencyContacts').lean()
     : ride?.userId || delivery?.userId || null;
   const actorDriver = sourceApp === 'driver'
-    ? await Driver.findById(authId).select('name phone vehicle').lean()
+    ? await Driver.findById(authId).select('name phone vehicle emergencyContacts').lean()
     : ride?.driverId || delivery?.driverId || null;
   const coords =
     normalizeCoordinates(location)
@@ -197,53 +212,179 @@ const createAlertRecord = async ({
     ],
   });
 
-  return SafetyAlert.findById(created._id).lean();
+  const actor = sourceApp === 'driver' ? actorDriver : actorUser;
+
+  return {
+    alert: await SafetyAlert.findById(created._id).lean(),
+    contacts: normalizeEmergencyContacts(actor?.emergencyContacts),
+    actorLabel: cleanString(actor?.name) || (sourceApp === 'driver' ? 'Your driver contact' : 'Your contact'),
+    actorPhone: cleanString(actor?.phone),
+  };
+};
+
+const buildSosSmsText = ({ actorLabel, actorPhone, alert }) => {
+  const coordinates = Array.isArray(alert?.location?.coordinates) ? alert.location.coordinates : [];
+  const [lng, lat] = coordinates;
+  const mapLink =
+    Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+      ? `https://maps.google.com/?q=${Number(lat)},${Number(lng)}`
+      : '';
+
+  return [
+    `EMERGENCY SOS: ${actorLabel} has triggered an SOS alert and may need help.`,
+    actorPhone ? `Phone: ${actorPhone}.` : '',
+    cleanString(alert?.locationLabel) ? `Near: ${cleanString(alert.locationLabel)}.` : '',
+    mapLink ? `Live location: ${mapLink}` : '',
+    cleanString(alert?.tripCode) ? `Trip: ${cleanString(alert.tripCode)}.` : '',
+    'Please reach out immediately.',
+  ]
+    .filter(Boolean)
+    .join(' ');
+};
+
+// A contact who also has one of our apps installed gets a push too; contacts
+// without an account simply have no token and this is a no-op.
+const pushToContactAccount = async ({ phone, message }) => {
+  const phoneVariants = [phone, `91${phone}`, `+91${phone}`];
+  const [users, drivers] = await Promise.all([
+    User.find({ phone: { $in: phoneVariants } }).select('_id').lean(),
+    Driver.find({ phone: { $in: phoneVariants } }).select('_id').lean(),
+  ]);
+
+  if (!users.length && !drivers.length) {
+    return false;
+  }
+
+  const result = await sendPushNotificationToEntities({
+    userIds: users.map((user) => user._id),
+    driverIds: drivers.map((driver) => driver._id),
+    title: 'Emergency SOS alert',
+    body: message,
+    data: { type: 'sos_emergency_contact' },
+  });
+
+  return Number(result?.deliveredCount || 0) > 0;
+};
+
+/**
+ * Notifies the actor's stored emergency contacts. Every failure is swallowed and
+ * logged: the alert is already persisted and on the admin dashboard, and a dead
+ * SMS provider must never turn a recorded SOS into a 500.
+ */
+const notifyEmergencyContacts = async ({ alert, contacts, actorLabel, actorPhone }) => {
+  if (!Array.isArray(contacts) || contacts.length === 0) {
+    return [];
+  }
+
+  const message = buildSosSmsText({ actorLabel, actorPhone, alert });
+
+  return Promise.all(
+    contacts.map(async (contact) => {
+      const record = {
+        name: contact.name,
+        phone: contact.phone,
+        channels: [],
+        delivered: false,
+        error: '',
+        notifiedAt: new Date(),
+      };
+
+      try {
+        await sendTransactionalSms({ phone: contact.phone, message, purpose: 'sos alert' });
+        record.channels.push('sms');
+        record.delivered = true;
+      } catch (error) {
+        record.error = cleanString(error?.message || 'SMS delivery failed').slice(0, 300);
+        console.error('[safetyController] SOS SMS to emergency contact failed', {
+          alertId: String(alert?._id || ''),
+          phone: maskPhone(contact.phone),
+          error: record.error,
+        });
+      }
+
+      try {
+        if (await pushToContactAccount({ phone: contact.phone, message })) {
+          record.channels.push('push');
+          record.delivered = true;
+        }
+      } catch (error) {
+        console.error('[safetyController] SOS push to emergency contact failed', {
+          alertId: String(alert?._id || ''),
+          phone: maskPhone(contact.phone),
+          error: cleanString(error?.message),
+        });
+      }
+
+      return record;
+    }),
+  );
+};
+
+const dispatchSosAlert = async ({ sourceApp, req, res }) => {
+  const { alert, contacts, actorLabel, actorPhone } = await createAlertRecord({
+    sourceApp,
+    authId: req.auth.sub,
+    rideId: cleanString(req.body?.rideId),
+    deliveryId: cleanString(req.body?.deliveryId),
+    serviceType: req.body?.serviceType,
+    location: req.body?.location,
+    locationLabel: req.body?.locationLabel,
+    pickupAddress: req.body?.pickupAddress,
+    dropAddress: req.body?.dropAddress,
+    notes: req.body?.notes,
+    tripCode: req.body?.tripCode,
+    vehicleLabel: req.body?.vehicleLabel,
+  });
+
+  // Admins first: they must see the incident even if contact delivery hangs.
+  const initialPayload = serializeSafetyAlert(alert);
+  emitToAdmins('new_sos', initialPayload);
+  emitToAdmins('safety:alert:new', initialPayload);
+
+  let notifiedContacts = [];
+
+  try {
+    notifiedContacts = await notifyEmergencyContacts({ alert, contacts, actorLabel, actorPhone });
+
+    if (notifiedContacts.length) {
+      const deliveredCount = notifiedContacts.filter((contact) => contact.delivered).length;
+      await SafetyAlert.updateOne(
+        { _id: alert._id },
+        {
+          $set: { notifiedContacts },
+          $push: {
+            logs: {
+              actorRole: 'system',
+              message: `Notified ${deliveredCount}/${notifiedContacts.length} emergency contacts`,
+            },
+          },
+        },
+      );
+    }
+  } catch (error) {
+    console.error('[safetyController] emergency contact notification failed', {
+      alertId: String(alert?._id || ''),
+      error: cleanString(error?.message),
+    });
+  }
+
+  const payload = notifiedContacts.length
+    ? serializeSafetyAlert((await SafetyAlert.findById(alert._id).lean()) || alert)
+    : initialPayload;
+
+  if (notifiedContacts.length) {
+    emitToAdmins('safety:alert:updated', payload);
+  }
+
+  res.json({ success: true, data: payload });
 };
 
 export const triggerUserSosAlert = asyncHandler(async (req, res) => {
-  const alert = await createAlertRecord({
-    sourceApp: 'user',
-    authId: req.auth.sub,
-    rideId: cleanString(req.body?.rideId),
-    deliveryId: cleanString(req.body?.deliveryId),
-    serviceType: req.body?.serviceType,
-    location: req.body?.location,
-    locationLabel: req.body?.locationLabel,
-    pickupAddress: req.body?.pickupAddress,
-    dropAddress: req.body?.dropAddress,
-    notes: req.body?.notes,
-    tripCode: req.body?.tripCode,
-    vehicleLabel: req.body?.vehicleLabel,
-  });
-
-  const payload = serializeSafetyAlert(alert);
-  emitToAdmins('new_sos', payload);
-  emitToAdmins('safety:alert:new', payload);
-
-  res.json({ success: true, data: payload });
+  await dispatchSosAlert({ sourceApp: 'user', req, res });
 });
 
 export const triggerDriverSosAlert = asyncHandler(async (req, res) => {
-  const alert = await createAlertRecord({
-    sourceApp: 'driver',
-    authId: req.auth.sub,
-    rideId: cleanString(req.body?.rideId),
-    deliveryId: cleanString(req.body?.deliveryId),
-    serviceType: req.body?.serviceType,
-    location: req.body?.location,
-    locationLabel: req.body?.locationLabel,
-    pickupAddress: req.body?.pickupAddress,
-    dropAddress: req.body?.dropAddress,
-    notes: req.body?.notes,
-    tripCode: req.body?.tripCode,
-    vehicleLabel: req.body?.vehicleLabel,
-  });
-
-  const payload = serializeSafetyAlert(alert);
-  emitToAdmins('new_sos', payload);
-  emitToAdmins('safety:alert:new', payload);
-
-  res.json({ success: true, data: payload });
+  await dispatchSosAlert({ sourceApp: 'driver', req, res });
 });
 
 export const listSafetyAlerts = asyncHandler(async (req, res) => {

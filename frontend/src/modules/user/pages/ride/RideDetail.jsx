@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Bike, HelpCircle, Repeat, Share2, Star } from 'lucide-react';
 import api from '../../../../shared/api/axiosInstance';
 import { useSettings } from '../../../../shared/context/SettingsContext';
+import { Button, Card, Skeleton } from '../../components/ui';
+
+const MotionDiv = motion.div;
 
 const unwrap = (response) => response?.data || response;
 
@@ -129,7 +132,7 @@ const RideDetail = () => {
           url: window.location.href,
         });
         return;
-      } catch (_error) {
+      } catch {
         return;
       }
     }
@@ -143,141 +146,151 @@ const RideDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] max-w-lg mx-auto flex flex-col font-sans relative">
+    <div className="relative flex min-h-screen max-w-lg mx-auto flex-col bg-surface-page font-sans text-ink">
       <AnimatePresence>
         {shareToast && (
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-2xl text-sm font-black shadow-2xl whitespace-nowrap"
+            className="fixed top-4 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-card bg-brand px-5 py-3 text-sm font-black text-white shadow-premium"
           >
             Trip details copied
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
-      <header className="bg-white p-5 flex items-start justify-between gap-3 border-b border-gray-50 shadow-sm sticky top-0 z-20">
-        <div className="flex min-w-0 items-start gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 active:scale-95 transition-all">
-            <ArrowLeft size={24} className="text-gray-900" strokeWidth={3} />
-          </button>
+      <header className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-line bg-surface p-5 shadow-soft">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Back"
+            onClick={() => navigate(-1)}
+            className="h-9 w-9 shrink-0 px-0"
+          >
+            <ArrowLeft size={18} strokeWidth={2.6} />
+          </Button>
           <div className="min-w-0">
             <h1
-              className="truncate text-[17px] font-black text-gray-900 leading-none"
+              className="truncate text-[17px] font-black leading-none text-ink"
               title={`Trip ID: #${details.rideCode}`}
             >
               Trip ID: #{details.shortRideCode}
             </h1>
-            <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-widest text-gray-400">
+            <p className="mt-1 truncate text-2xs font-bold uppercase tracking-widest text-ink-faint">
               {details.statusLabel}: {formatLongDate(details.timeSource)}
             </p>
           </div>
         </div>
-        <button onClick={handleShare} className="shrink-0 active:scale-90 transition-all">
-          <Share2 size={20} className="text-gray-400 hover:text-gray-900 transition-colors" />
-        </button>
+        <Button variant="ghost" size="sm" aria-label="Share trip" onClick={handleShare} className="shrink-0 px-2">
+          <Share2 size={18} />
+        </Button>
       </header>
 
-      <div className="flex-1 p-5 space-y-8 overflow-y-auto no-scrollbar">
-        {loading && (
-          <div className="rounded-[24px] border border-gray-50 bg-white p-5 text-center text-[13px] font-black text-gray-500 shadow-sm">
-            Loading trip details...
-          </div>
-        )}
+      <div className="no-scrollbar flex-1 space-y-6 overflow-y-auto p-5">
+        {loading && <Skeleton className="h-20 rounded-card-lg" />}
 
         {error && (
-          <div className="rounded-[24px] border border-red-100 bg-red-50 p-5 text-center text-[13px] font-black text-red-600 shadow-sm">
-            {error}
-          </div>
+          <Card className="border-rose-500/30 bg-rose-500/10 text-center">
+            <p className="text-[13px] font-black text-rose-500">{error}</p>
+          </Card>
         )}
 
-        <div className="h-40 bg-gray-100 rounded-[32px] overflow-hidden relative shadow-sm">
-          <img src="/map image.avif" className="w-full h-full object-cover opacity-60" alt="Map View" />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/80 to-transparent" />
+        <div className="relative h-40 overflow-hidden rounded-card-lg border border-line bg-surface-sunken">
+          <img src="/map image.avif" className="h-full w-full object-cover opacity-60" alt="Map View" />
         </div>
 
-        <div className="relative pl-8 space-y-6">
-          <div className="absolute left-[7px] top-2 bottom-2 w-0.5 border-l-2 border-dashed border-gray-100" />
+        <div className="relative space-y-6 pl-8">
+          <div className="absolute left-[7px] top-2 bottom-2 w-0.5 border-l-2 border-dashed border-line" />
 
           <div className="relative">
-            <div className="absolute -left-9 top-0.5 w-4 h-4 rounded-full border-2 border-green-500 bg-white shadow-sm flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+            <div className="absolute -left-9 top-0.5 flex h-4 w-4 items-center justify-center rounded-pill border-2 border-emerald-500 bg-surface">
+              <div className="h-1.5 w-1.5 rounded-pill bg-emerald-500" />
             </div>
-            <h4 className="text-[12px] font-black text-gray-400 uppercase tracking-widest mb-1">Pickup</h4>
-            <p className="text-[15px] font-black text-gray-800 leading-tight">{details.pickup}</p>
-            <span className="text-[11px] font-bold text-gray-400 block mt-1">{formatTime(details.startTime)}</span>
+            <h4 className="mb-1 text-2xs font-black uppercase tracking-widest text-ink-faint">Pickup</h4>
+            <p className="text-[15px] font-black leading-tight text-ink">{details.pickup}</p>
+            <span className="mt-1 block text-[11px] font-bold text-ink-faint">{formatTime(details.startTime)}</span>
           </div>
 
           <div className="relative">
-            <div className="absolute -left-9 top-0.5 w-4 h-4 rounded-full border-2 border-orange-500 bg-white shadow-sm flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+            <div className="absolute -left-9 top-0.5 flex h-4 w-4 items-center justify-center rounded-pill border-2 border-brand bg-surface">
+              <div className="h-1.5 w-1.5 rounded-pill bg-brand" />
             </div>
-            <h4 className="text-[12px] font-black text-gray-400 uppercase tracking-widest mb-1">Drop</h4>
-            <p className="text-[15px] font-black text-gray-800 leading-tight">{details.drop}</p>
-            <span className="text-[11px] font-bold text-gray-400 block mt-1">{formatTime(details.endTime)}</span>
+            <h4 className="mb-1 text-2xs font-black uppercase tracking-widest text-ink-faint">Drop</h4>
+            <p className="text-[15px] font-black leading-tight text-ink">{details.drop}</p>
+            <span className="mt-1 block text-[11px] font-bold text-ink-faint">{formatTime(details.endTime)}</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-[32px] p-6 border border-gray-50 shadow-sm space-y-4">
-          <div className="flex items-center gap-3 pb-4 border-b border-gray-50">
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-900 shadow-sm border border-gray-100">
-              <Bike size={22} />
+        <Card className="space-y-4 p-5">
+          <div className="flex items-center gap-3 border-b border-line pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-control bg-surface-sunken text-ink">
+              <Bike size={20} strokeWidth={2.2} />
             </div>
-            <div>
-              <h3 className="text-[15px] font-black text-gray-900">{details.vehicle} Ride</h3>
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Payment by {details.paymentMethod}</p>
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-black text-ink">{details.vehicle} Ride</h3>
+              <p className="text-2xs font-bold uppercase tracking-widest text-ink-faint">
+                Payment by {details.paymentMethod}
+              </p>
             </div>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <div className="flex justify-between items-center text-[13px] font-bold text-gray-500">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-[13px] font-bold text-ink-soft">
               <span>Base Fare</span>
-              <span className="text-gray-900">Rs {details.baseFare}.00</span>
+              <span className="text-ink">Rs {details.baseFare}.00</span>
             </div>
-            <div className="flex justify-between items-center text-[13px] font-bold text-gray-500">
-              <span>Taxes & Fees</span>
-              <span className="text-gray-900">Rs {details.taxes}.00</span>
+            <div className="flex items-center justify-between text-[13px] font-bold text-ink-soft">
+              <span>Taxes &amp; Fees</span>
+              <span className="text-ink">Rs {details.taxes}.00</span>
             </div>
-            <div className="flex justify-between items-center text-[16px] font-black text-gray-900 border-t border-gray-50 pt-3">
+            <div className="flex items-center justify-between border-t border-line pt-3 text-base font-black text-ink">
               <span>Total Paid</span>
               <span>Rs {details.fare}.00</span>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="flex items-center justify-between p-5 bg-orange-50/50 rounded-[28px] border border-orange-50">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-white rounded-2xl p-0.5 overflow-hidden border border-orange-100">
+        <Card className="flex items-center justify-between gap-3 p-5">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-card border border-line bg-surface-sunken p-0.5">
               <img
                 src={`https://ui-avatars.com/api/?name=${String(details.driverName).replace(' ', '+')}&background=f0f0f0&color=000`}
-                className="w-full h-full rounded-[14px]"
+                className="h-full w-full rounded-[12px]"
                 alt={details.driverName}
               />
             </div>
-            <div>
-              <h4 className="text-[14px] font-black text-gray-900">{details.driverName}</h4>
-              <div className="flex items-center gap-1 text-[11px] font-black text-orange-600">
-                <Star size={12} className="fill-orange-600" />
-                <span>{details.rating} - {details.plate}</span>
+            <div className="min-w-0">
+              <h4 className="truncate text-sm font-black text-ink">{details.driverName}</h4>
+              <div className="mt-0.5 flex items-center gap-1">
+                <Star size={12} className="fill-brand text-brand" />
+                <span className="text-[11px] font-black text-brand">
+                  {details.rating} - {details.plate}
+                </span>
               </div>
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
+            className="shrink-0 rounded-pill"
             onClick={() => navigate(routePrefix ? `${routePrefix}/support` : '/ride/support')}
-            className="bg-white px-4 py-2 rounded-full text-[12px] font-black text-gray-900 border border-orange-100 active:scale-95 transition-all"
           >
             Support
-          </button>
-        </div>
+          </Button>
+        </Card>
       </div>
 
-      <div className="p-6 border-t border-gray-50 flex gap-4 bg-white pb-10">
-        <button
-          type="button"
+      <div className="flex gap-3 border-t border-line bg-surface p-5 pb-8">
+        <Button
+          size="lg"
+          className="flex-[2] uppercase tracking-widest"
+          leftIcon={<Repeat size={18} />}
           onClick={() => {
-            const vehicleTypeStr = String(ride?.vehicleIconType || ride?.vehicle?.icon_types || ride?.driver?.vehicleType || '').toLowerCase();
+            const vehicleTypeStr = String(
+              ride?.vehicleIconType || ride?.vehicle?.icon_types || ride?.driver?.vehicleType || '',
+            ).toLowerCase();
             const rebookCategory = vehicleTypeStr.includes('bike') || vehicleTypeStr.includes('scooty')
               ? 'bike'
               : vehicleTypeStr.includes('auto')
@@ -294,19 +307,18 @@ const RideDetail = () => {
               },
             });
           }}
-          className="flex-[2] bg-[#1C2833] text-white py-5 rounded-[24px] text-[14px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
         >
-          <Repeat size={18} />
-          <span>Rebook Ride</span>
-        </button>
-        <button
-          type="button"
+          Rebook Ride
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          className="flex-1 uppercase tracking-widest"
+          leftIcon={<HelpCircle size={18} />}
           onClick={() => navigate(routePrefix ? `${routePrefix}/support` : '/ride/support')}
-          className="flex-1 bg-gray-50 text-gray-900 py-5 rounded-[24px] text-[14px] font-black uppercase tracking-widest border border-gray-100 flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
-          <HelpCircle size={18} />
-          <span>Help</span>
-        </button>
+          Help
+        </Button>
       </div>
     </div>
   );

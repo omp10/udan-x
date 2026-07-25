@@ -23,7 +23,10 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // `motion` is only ever referenced as JSX (<motion.div />), which core
+      // no-unused-vars cannot see without eslint-plugin-react. Same reason the
+      // ^[A-Z_] escape hatch exists for component imports.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]|^motion$' }],
     },
   },
 ])

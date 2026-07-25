@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle2, Copy, Gift, Loader2, Share2 } from 'lucide-react';
-// ... removed BottomNavbar import ...
+import { ArrowLeft, CheckCircle2, Copy, Gift, Share2 } from 'lucide-react';
 import { userAuthService } from '../services/authService';
 import {
   getReferralSettingsContent,
@@ -15,7 +14,9 @@ import {
   USER_REFERRAL_TRANSLATION_FIELDS,
 } from '../../shared/utils/referralTranslationFields';
 import { useSettings } from '../../../shared/context/SettingsContext';
-import { useUserTheme } from '../../../shared/context/UserThemeContext';
+import { Button, Card, Skeleton } from '../components/ui';
+
+const MotionDiv = motion.div;
 
 
 const readStoredUserInfo = () => {
@@ -36,8 +37,6 @@ const replaceLegacyReferralBrand = (value, appName) => {
 const Referral = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const { theme } = useUserTheme();
-  const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState('refer');
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -192,136 +191,130 @@ const Referral = () => {
   };
 
   return (
-    <div className={`min-h-screen max-w-lg mx-auto font-sans pb-28 transition-colors duration-300 ${isDark ? 'bg-slate-950 text-white' : 'bg-[#f5f7fb] text-slate-900'}`}>
-      <header className={`px-5 pt-10 pb-4 sticky top-0 z-20 border-b transition-colors duration-300 ${isDark ? 'bg-slate-900/90 border-slate-800 text-white shadow-sm' : 'bg-white border-gray-100 text-slate-900 shadow-sm'}`}>
+    <div className="min-h-screen max-w-lg mx-auto bg-surface-page pb-28 font-sans text-ink">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface px-5 pt-10 pb-4 shadow-soft">
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Back"
             onClick={() => navigate(-1)}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center shadow-sm transition-all active:scale-95 cursor-pointer ${isDark ? 'border-slate-800 bg-slate-950 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+            className="h-9 w-9 px-0"
           >
-            <ArrowLeft size={18} className={isDark ? 'text-white' : 'text-slate-900'} strokeWidth={2.3} />
-          </button>
-          <div className="flex-1 text-center pr-12">
-            <h1 className={`text-[19px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Referrals</h1>
+            <ArrowLeft size={18} strokeWidth={2.4} />
+          </Button>
+          <div className="flex-1 pr-12 text-center">
+            <h1 className="text-[19px] font-black tracking-tight text-ink">Referrals</h1>
           </div>
         </div>
       </header>
 
       <div className="px-5 pt-5">
-        <div className={`rounded-[28px] border shadow-sm overflow-hidden transition-colors ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-          <div className={`px-5 py-5 flex items-center justify-between border-b ${isDark ? 'bg-slate-950 border-slate-800 text-white' : 'bg-gradient-to-r from-amber-100 via-yellow-100 to-yellow-50 border-yellow-200/50'}`}>
-            <div>
-              <p className={`text-[26px] font-black leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{bannerText}</p>
-              <p className={`text-[11px] mt-1.5 ${isDark ? 'text-slate-400 font-medium' : 'text-slate-500 font-bold'}`}>Language: {translation.language_code?.toUpperCase() || 'EN'}</p>
+        <Card padded={false} className="overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-line bg-brand-soft px-5 py-5">
+            <div className="min-w-0">
+              <p className="text-2xl font-black leading-tight text-ink">{bannerText}</p>
+              <p className="mt-1.5 text-[11px] font-bold text-ink-faint">
+                Language: {translation.language_code?.toUpperCase() || 'EN'}
+              </p>
             </div>
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/10 text-white' : 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md shadow-indigo-500/20'}`}>
-              <Gift size={20} />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-card bg-brand text-white">
+              <Gift size={20} strokeWidth={2.4} />
             </div>
           </div>
 
           <div className="px-4 py-4">
             <div className="grid grid-cols-[1fr_auto] gap-2">
-              <div className={`rounded-xl border border-dashed px-3 py-3 text-center transition-colors ${isDark ? 'border-slate-800 bg-slate-950/50' : 'border-gray-300 bg-white'}`}>
-                <p className={`text-[18px] font-semibold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {referralCode || 'Not available'}
+              <div className="rounded-control border border-dashed border-line bg-surface-sunken px-3 py-3 text-center">
+                <p className="text-lg font-black tracking-wide text-ink">{referralCode || 'Not available'}</p>
+                <p className="mt-1 text-2xs font-black uppercase tracking-wider text-ink-faint">
+                  Your referral code
                 </p>
-                <p className={`text-[10px] uppercase font-bold tracking-wider mt-1 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>Your referral code</p>
               </div>
-              <button
-                type="button"
+              <Button
                 onClick={handleCopy}
                 disabled={!referralCode}
-                className={`rounded-xl px-4 text-sm font-semibold flex items-center gap-2 transition-all duration-200 active:scale-95 disabled:opacity-50 ${isDark ? 'bg-white text-slate-950 hover:bg-slate-100' : 'bg-slate-950 text-white hover:bg-slate-900'}`}
+                leftIcon={copied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
               >
-                {copied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
                 Copy
-              </button>
+              </Button>
             </div>
 
-            <div className={`grid grid-cols-2 gap-2 mt-3 p-1 rounded-xl ${isDark ? 'bg-slate-950/40' : 'bg-slate-100'}`}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('refer')}
-                className={`rounded-lg py-2 text-xs font-bold transition-all ${
-                  activeTab === 'refer'
-                    ? isDark
-                      ? 'bg-slate-900 text-white border border-slate-800/80 shadow'
-                      : 'bg-white border border-slate-200 text-slate-900 shadow-sm'
-                    : isDark
-                      ? 'text-slate-400 hover:text-slate-200'
-                      : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Refer and earn
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('history')}
-                className={`rounded-lg py-2 text-xs font-bold transition-all ${
-                  activeTab === 'history'
-                    ? isDark
-                      ? 'bg-slate-900 text-white border border-slate-800/80 shadow'
-                      : 'bg-white border border-slate-200 text-slate-900 shadow-sm'
-                    : isDark
-                      ? 'text-slate-400 hover:text-slate-200'
-                      : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Referral history
-              </button>
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-control bg-surface-sunken p-1">
+              {[
+                { key: 'refer', label: 'Refer and earn' },
+                { key: 'history', label: 'Referral history' },
+              ].map((tab) => (
+                <Button
+                  key={tab.key}
+                  size="sm"
+                  variant={activeTab === tab.key ? 'secondary' : 'ghost'}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  {tab.label}
+                </Button>
+              ))}
             </div>
           </div>
 
-          <div className="px-4 pb-4 min-h-[340px]">
+          <div className="min-h-[340px] px-4 pb-4">
             {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 className={`animate-spin ${isDark ? 'text-white' : 'text-slate-900'}`} size={26} />
+              <div className="space-y-3 py-4">
+                <Skeleton className="h-5 w-40 rounded-control" />
+                <Skeleton lines={5} />
+                <Skeleton lines={3} />
               </div>
             ) : activeTab === 'refer' ? (
               <div className="space-y-4">
-                <h2 className={`text-[18px] font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>How it works?</h2>
+                <h2 className="text-lg font-black text-ink">How it works?</h2>
                 {infoBlocks.length === 0 ? (
-                  <p className="text-sm text-slate-400">Referral content will appear here after admin updates this language.</p>
+                  <p className="text-sm font-medium text-ink-faint">
+                    Referral content will appear here after admin updates this language.
+                  </p>
                 ) : (
                   infoBlocks.map((block) => (
-                     <div
-                       key={block.key}
-                       className={`text-[14px] leading-6 prose prose-sm max-w-none transition-colors ${isDark ? 'text-slate-300 prose-invert' : 'text-slate-800'}`}
-                       dangerouslySetInnerHTML={{ __html: block.html }}
-                     />
+                    <div
+                      key={block.key}
+                      className="prose prose-sm max-w-none text-sm leading-6 text-ink-soft dark:prose-invert"
+                      dangerouslySetInnerHTML={{ __html: block.html }}
+                    />
                   ))
                 )}
               </div>
             ) : (
-              <div className={`rounded-2xl border border-dashed px-5 py-8 text-center transition-colors ${isDark ? 'border-slate-800 bg-slate-950/30' : 'border-gray-200 bg-gray-50'}`}>
-                <p className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-900'}`}>Successful referrals</p>
-                <p className={`text-4xl font-extrabold mt-2 ${isDark ? 'text-white' : 'text-slate-950'}`}>{profile.referralCount}</p>
-                <p className="text-xs text-slate-400 mt-2">Detailed referral history is not available on this screen yet.</p>
+              <div className="rounded-card-lg border border-dashed border-line bg-surface-sunken px-5 py-8 text-center">
+                <p className="text-sm font-bold text-ink-soft">Successful referrals</p>
+                <p className="mt-2 text-4xl font-black text-ink">{profile.referralCount}</p>
+                <p className="mt-2 text-xs font-medium text-ink-faint">
+                  Detailed referral history is not available on this screen yet.
+                </p>
               </div>
             )}
           </div>
-        </div>
+        </Card>
 
-        <button
-          type="button"
+        <Button
+          block
+          size="lg"
+          className="mt-5"
           onClick={handleShare}
           disabled={!referralCode}
-          className={`w-full rounded-2xl py-4 text-sm font-bold mt-5 flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-lg disabled:opacity-50 ${isDark ? 'bg-white text-slate-950 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+          rightIcon={<Share2 size={16} />}
         >
-          Refer now <Share2 size={16} />
-        </button>
+          Refer now
+        </Button>
       </div>
 
       <AnimatePresence>
         {copied ? (
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className={`fixed bottom-24 left-1/2 -translate-x-1/2 rounded-2xl px-4 py-3 text-xs font-semibold shadow-xl border ${isDark ? 'bg-slate-900 text-white border-slate-800' : 'bg-slate-900 text-white border-transparent'}`}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-card border border-line bg-surface px-4 py-3 text-xs font-bold text-ink shadow-premium"
           >
             Referral code copied
-          </motion.div>
+          </MotionDiv>
         ) : null}
       </AnimatePresence>
     </div>

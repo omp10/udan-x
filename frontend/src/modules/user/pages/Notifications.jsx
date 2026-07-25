@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Bell, Trash2, Tag, ShieldCheck, Star, AlertCircle, RefreshCw, Megaphone, CheckCircle2 } from 'lucide-react';
-// ... removed BottomNavbar import ...
+import { ArrowLeft, Bell, Trash2, AlertCircle, RefreshCw, Megaphone, CheckCircle2 } from 'lucide-react';
 import { userAuthService } from '../services/authService';
-import { useUserTheme } from '../../../shared/context/UserThemeContext';
+import { Badge, Button, Card, EmptyState, Skeleton } from '../components/ui';
 import {
   USER_NOTIFICATIONS_UPDATED_EVENT,
   clearRealtimeNotifications,
@@ -13,6 +12,8 @@ import {
   removeRealtimeNotification,
 } from '../utils/realtimeNotificationStore';
 import toast from 'react-hot-toast';
+
+const MotionDiv = motion.div;
 
 const formatNotificationTime = (value) => {
   if (!value) return 'Recently';
@@ -26,23 +27,14 @@ const formatNotificationTime = (value) => {
   });
 };
 
-const TYPE_ICONS = {
-  ride:     { icon: Star,        bg: 'bg-orange-50',  color: 'text-orange-500' },
-  promo:    { icon: Tag,         bg: 'bg-yellow-50',  color: 'text-yellow-500' },
-  safety:   { icon: ShieldCheck, bg: 'bg-blue-50',    color: 'text-blue-500'   },
-  referral: { icon: Star,        bg: 'bg-emerald-50', color: 'text-emerald-500'},
-  parcel:   { icon: Bell,        bg: 'bg-violet-50',  color: 'text-violet-500' },
-};
-
 const SkeletonCard = () => (
-  <div className="animate-pulse rounded-[20px] bg-white/70 border border-white/80 p-4 flex items-start gap-3">
-    <div className="w-10 h-10 rounded-[12px] bg-slate-200 shrink-0" />
+  <Card className="flex items-start gap-3">
+    <Skeleton className="h-10 w-10 shrink-0 rounded-control" />
     <div className="flex-1 space-y-2">
-      <div className="h-3 bg-slate-200 rounded-full w-2/3" />
-      <div className="h-2.5 bg-slate-100 rounded-full w-full" />
-      <div className="h-2.5 bg-slate-100 rounded-full w-4/5" />
+      <Skeleton className="h-3 w-2/3" />
+      <Skeleton lines={2} />
     </div>
-  </div>
+  </Card>
 );
 
 const Notifications = () => {
@@ -102,7 +94,6 @@ const Notifications = () => {
       setServerNotifications([]);
       toast.success('All notifications cleared', {
         icon: <CheckCircle2 size={18} className="text-emerald-500" />,
-        className: 'font-bold text-[13px] rounded-2xl shadow-xl border border-emerald-50 bg-white',
       });
     } catch (err) {
       toast.error(err?.message || 'Failed to clear notifications');
@@ -114,148 +105,149 @@ const Notifications = () => {
   const handleRemoveSingle = async (id) => {
     if (isRealtimeNotification(id)) {
       removeRealtimeNotification(id);
-      toast.success('Notification removed', {
-        className: 'font-bold text-[13px] rounded-2xl shadow-xl border border-slate-50 bg-white',
-      });
+      toast.success('Notification removed');
       return;
     }
 
     try {
       await userAuthService.deleteNotification(id);
       setServerNotifications((prev) => prev.filter((notification) => notification.id !== id));
-      toast.success('Notification removed', {
-        className: 'font-bold text-[13px] rounded-2xl shadow-xl border border-slate-50 bg-white',
-      });
-    } catch (err) {
+      toast.success('Notification removed');
+    } catch {
       toast.error('Failed to remove notification');
     }
   };
 
-  const totalCount = useMemo(() => notifications.length, [notifications.length]);
-
-  const { theme } = useUserTheme();
-  const isDark = theme === 'dark';
+  const totalCount = notifications.length;
 
   return (
-    <div className={`min-h-screen max-w-lg mx-auto font-sans pb-28 relative overflow-hidden transition-colors duration-300 ${isDark ? 'bg-slate-950 text-white' : 'bg-[linear-gradient(180deg,#F8FAFC_0%,#F3F4F6_38%,#EEF2F7_100%)] text-slate-900'}`}>
-      <div className={`absolute -top-16 right-[-40px] h-44 w-44 rounded-full blur-3xl pointer-events-none ${isDark ? 'bg-yellow-500/5' : 'bg-purple-100/60'}`} />
-      <div className={`absolute top-52 left-[-60px] h-52 w-52 rounded-full blur-3xl pointer-events-none ${isDark ? 'bg-yellow-500/5' : 'bg-blue-100/40'}`} />
-
-      {/* Header */}
-      <header className={`backdrop-blur-md px-5 pt-10 pb-4 sticky top-0 z-20 border-b transition-colors duration-300 ${isDark ? 'bg-slate-900/90 border-slate-800 shadow-[0_4px_20px_rgba(0,0,0,0.3)]' : 'bg-white/90 border-white/80 shadow-[0_4px_20px_rgba(15,23,42,0.05)]'}`}>
+    <div className="relative min-h-screen max-w-lg mx-auto overflow-hidden bg-surface-page pb-28 font-sans text-ink">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface px-5 pt-10 pb-4 shadow-soft backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/taxi/user/profile')} className={`w-9 h-9 rounded-[12px] border flex items-center justify-center shadow-sm active:scale-95 transition-all cursor-pointer ${isDark ? 'border-slate-800 bg-slate-950 text-white' : 'border-white/80 bg-white/90 text-slate-900'}`}>
-            <ArrowLeft size={18} className={isDark ? 'text-white' : 'text-slate-900'} strokeWidth={2.5} />
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.26em] text-slate-400">Inbox</p>
-            <h1 className={`text-[19px] font-black tracking-tight leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Notifications</h1>
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Back"
+            onClick={() => navigate('/taxi/user/profile')}
+            className="h-9 w-9 px-0"
+          >
+            <ArrowLeft size={18} strokeWidth={2.5} />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="text-3xs font-black uppercase tracking-[0.26em] text-ink-faint">Inbox</p>
+            <h1 className="text-[19px] font-black leading-tight tracking-tight text-ink">Notifications</h1>
           </div>
-          <div className={`text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm ${isDark ? 'bg-yellow-400 text-slate-950' : 'bg-slate-900 text-white'}`}>
-            {totalCount}
-          </div>
+          <Badge tone="brand">{totalCount}</Badge>
         </div>
       </header>
 
-      <div className="px-5 pt-4 space-y-2.5">
+      <div className="space-y-2.5 px-5 pt-4">
         <div className="flex items-center justify-between px-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-slate-400">Admin & System Alerts</p>
-          <div className="flex items-center gap-4">
+          <p className="text-2xs font-black uppercase tracking-[0.26em] text-ink-faint">Admin &amp; system alerts</p>
+          <div className="flex items-center gap-1">
             {notifications.length > 0 && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleClearAll}
                 disabled={clearing || loading}
-                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-rose-500 active:scale-95 transition-all disabled:opacity-50"
+                leftIcon={<Trash2 size={12} strokeWidth={2.5} />}
+                className="text-2xs uppercase tracking-widest text-rose-500 hover:text-rose-600"
               >
-                <Trash2 size={12} strokeWidth={2.5} />
-                Clear All
-              </button>
+                Clear all
+              </Button>
             )}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={fetchNotifications}
-              className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500 active:scale-95 transition-all"
+              leftIcon={<RefreshCw size={12} strokeWidth={2.5} className={loading ? 'animate-spin' : ''} />}
+              className="text-2xs uppercase tracking-widest"
             >
-              <RefreshCw size={12} strokeWidth={2.5} className={loading ? 'animate-spin' : ''} />
               Refresh
-            </button>
+            </Button>
           </div>
         </div>
 
         {loading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
 
         {error && !loading && (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-            <div className="w-16 h-16 bg-white/80 border border-white/80 rounded-3xl flex items-center justify-center">
-              <AlertCircle size={28} className="text-red-400" strokeWidth={2} />
-            </div>
-            <p className="text-[14px] font-black text-slate-700">{error}</p>
-            <button onClick={fetchNotifications}
-              className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-full text-[12px] font-black uppercase tracking-widest active:scale-95 transition-all">
-              <RefreshCw size={13} strokeWidth={2.5} /> Retry
-            </button>
-          </div>
+          <EmptyState
+            icon={AlertCircle}
+            title={error}
+            description="We could not reach the notification service."
+            action={
+              <Button
+                onClick={fetchNotifications}
+                leftIcon={<RefreshCw size={14} strokeWidth={2.5} />}
+                className="rounded-pill"
+              >
+                Retry
+              </Button>
+            }
+          />
         )}
 
         {!loading && !error && notifications.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-            <div className="w-20 h-20 bg-white/80 border border-white/80 rounded-3xl flex items-center justify-center">
-              <Bell size={36} className="text-slate-300" strokeWidth={1.5} />
-            </div>
-            <div>
-              <p className="text-[16px] font-black text-slate-700">You're all caught up</p>
-              <p className="text-[12px] font-bold text-slate-400 mt-1">No new notifications right now</p>
-            </div>
-          </div>
+          <EmptyState
+            icon={Bell}
+            title="You're all caught up"
+            description="No new notifications right now"
+          />
         )}
 
         <AnimatePresence>
-          {!loading && !error && notifications.map((n) => {
-            return (
-              <motion.div key={n.id}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="relative rounded-[20px] border border-white/80 bg-white p-4 flex items-start gap-3 transition-all shadow-[0_4px_14px_rgba(15,23,42,0.07)]">
-                <div className="w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0 bg-blue-50">
-                  <Megaphone size={16} className="text-blue-500" strokeWidth={2} />
+          {!loading && !error && notifications.map((n) => (
+            <MotionDiv
+              key={n.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+            >
+              <Card className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-brand-soft">
+                  <Megaphone size={16} className="text-brand" strokeWidth={2.2} />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-[13px] leading-tight font-black text-slate-900">{n.title || 'Notification'}</p>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-[9px] font-bold text-slate-400 mt-0.5">
+                    <p className="text-[13px] font-black leading-tight text-ink">{n.title || 'Notification'}</p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="mt-0.5 text-3xs font-bold text-ink-faint">
                         {formatNotificationTime(n.sentAt)}
                       </span>
                       <button
+                        type="button"
+                        aria-label="Remove notification"
                         onClick={() => handleRemoveSingle(n.id)}
-                        className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                        className="p-1.5 text-ink-faint transition-colors hover:text-rose-500"
                       >
                         <Trash2 size={13} strokeWidth={2.5} />
                       </button>
                     </div>
                   </div>
-                  <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed whitespace-pre-wrap">{n.body || 'No message'}</p>
-                  
+                  <p className="mt-1 whitespace-pre-wrap text-[11px] font-bold leading-relaxed text-ink-soft">
+                    {n.body || 'No message'}
+                  </p>
+
                   {n.image && (
-                    <div className="mt-3 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
-                      <img 
-                        src={n.image} 
-                        alt="Notification content" 
-                        className="w-full h-auto max-h-[180px] object-cover"
+                    <div className="mt-3 overflow-hidden rounded-card border border-line bg-surface-sunken">
+                      <img
+                        src={n.image}
+                        alt="Notification content"
+                        className="h-auto max-h-[180px] w-full object-cover"
                       />
                     </div>
                   )}
 
                   {n.serviceLocationName && (
-                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-2">
+                    <p className="mt-2 text-3xs font-black uppercase tracking-widest text-ink-faint">
                       {n.serviceLocationName}
                     </p>
                   )}
                 </div>
-              </motion.div>
-            );
-          })}
+              </Card>
+            </MotionDiv>
+          ))}
         </AnimatePresence>
       </div>
     </div>

@@ -2,6 +2,37 @@
 
 @import "tailwindcss";
 
+/* Drive Tailwind's `dark:` variant from the `.dark` class that UserThemeContext
+   puts on <html>, instead of the OS `prefers-color-scheme` default. This is what
+   makes every `dark:` utility in the app actually respond to the theme toggle. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   CUSTOMER DESIGN SYSTEM TOKENS
+   Raw values live here (light on :root, dark on .dark) and are exposed to
+   Tailwind through @theme below, so `bg-surface` / `text-ink` / `border-line`
+   flip with the theme without needing a `dark:` counterpart at every call site.
+   ========================================================================== */
+:root {
+  --ds-surface: #ffffff;
+  --ds-surface-sunken: #f1f3f8;
+  --ds-surface-page: #f8fafc;
+  --ds-line: rgba(15, 23, 42, 0.10);
+  --ds-ink: #0b1220;
+  --ds-ink-soft: #475569;
+  --ds-ink-faint: #94a3b8;
+}
+
+.dark {
+  --ds-surface: #101827;
+  --ds-surface-sunken: #162238;
+  --ds-surface-page: #05070d;
+  --ds-line: rgba(255, 255, 255, 0.12);
+  --ds-ink: #ffffff;
+  --ds-ink-soft: #cbd5e1;
+  --ds-ink-faint: #7d8aa5;
+}
+
 :root {
   font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
@@ -31,15 +62,42 @@ body {
 @theme {
   --color-primary: #E85D04;
   --color-secondary: #F48C06;
+  /* Same value as --color-primary, but under a name the legacy
+     `.user-app-theme .bg-primary { ... !important }` accent override does not
+     capture, so design-system components keep the real brand orange. */
+  --color-brand: var(--color-primary);
+  --color-brand-soft: color-mix(in srgb, var(--color-primary) 12%, transparent);
+
+  /* Theme-aware surfaces / text / borders (see :root and .dark above) */
+  --color-surface: var(--ds-surface);
+  --color-surface-sunken: var(--ds-surface-sunken);
+  --color-surface-page: var(--ds-surface-page);
+  --color-line: var(--ds-line);
+  --color-ink: var(--ds-ink);
+  --color-ink-soft: var(--ds-ink-soft);
+  --color-ink-faint: var(--ds-ink-faint);
+
   --font-sans: 'Outfit', system-ui, sans-serif;
   --font-display: 'Outfit', sans-serif;
-  
+
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
   --radius-3xl: 2rem;
-  
+  /* Named radii replacing the hardcoded rounded-[16/20/24/28px] soup */
+  --radius-control: 16px;
+  --radius-card: 20px;
+  --radius-card-lg: 24px;
+  --radius-sheet: 28px;
+  --radius-pill: 999px;
+
+  /* Micro label sizes used all over the customer app */
+  --text-3xs: 0.5625rem;
+  --text-2xs: 0.625rem;
+
   --shadow-premium: 0 10px 40px -10px rgba(0,0,0,0.1);
   --shadow-soft: 0 4px 20px -2px rgba(0,0,0,0.05);
+  --shadow-card: 0 4px 14px rgba(15, 23, 42, 0.07);
+  --shadow-sheet: 0 -12px 40px -8px rgba(0, 0, 0, 0.25);
 }
 
 /* Global scrollbar hiding for a cleaner mobile experience */
@@ -483,6 +541,26 @@ body {
 .user-app-theme textarea:focus {
   border-color: var(--user-accent) !important;
   box-shadow: 0 0 0 1px var(--user-accent) !important;
+}
+
+/* Opt-out for design-system fields: the blanket `.user-app-theme input` rules
+   above win on !important, so Input/Select/Textarea tag themselves `.ds-field`
+   to keep design-system tokens (and the brand orange focus ring). */
+.user-app-theme .ds-field,
+.ds-field {
+  background-color: var(--color-surface-sunken) !important;
+  border-color: var(--color-line) !important;
+  color: var(--color-ink) !important;
+}
+
+.user-app-theme .ds-field:focus,
+.ds-field:focus {
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 0 0 1px var(--color-brand) !important;
+}
+
+.ds-field::placeholder {
+  color: var(--color-ink-faint) !important;
 }
 
 /* Lighter grey badges, card inner sections, and alerts map to card-soft */

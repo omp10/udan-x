@@ -6,6 +6,7 @@ import { connectRedis, getRedisStatus } from './src/infrastructure/redis/redisCl
 import { configureTaxiSocketServer } from './src/modules/taxi/socket/index.js';
 import { User } from './src/modules/taxi/user/models/User.js';
 import { restoreScheduledDispatches, startDispatchRecoveryLoop } from './src/modules/taxi/services/dispatchService.js';
+import { startSubscriptionRenewalWorker } from './src/modules/taxi/services/subscriptionRenewalWorker.js';
 
 const bootstrap = async () => {
   await connectDatabase();
@@ -24,6 +25,7 @@ const bootstrap = async () => {
   configureTaxiSocketServer(httpServer);
   await restoreScheduledDispatches();
   startDispatchRecoveryLoop();
+  startSubscriptionRenewalWorker();
 
   httpServer.listen(env.port, () => {
     const redisStatus = getRedisStatus();

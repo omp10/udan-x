@@ -1042,8 +1042,13 @@ const SenderReceiverDetails = () => {
   const [goodsCategory, setGoodsCategory] = useState(() => parcelState.goodsCategory || 'Household');
   const [fragile, setFragile] = useState(() => Boolean(parcelState.fragile));
   const [helperType, setHelperType] = useState(() => parcelState.helperType || 'none');
-  const [loadingRate, setLoadingRate] = useState(150);
-  const [unloadingRate, setUnloadingRate] = useState(150);
+  const [materialName, setMaterialName] = useState(() => parcelState.materialName || '');
+  const [packageCount, setPackageCount] = useState(() => parcelState.packageCount || '1');
+  const [handlingInstructions, setHandlingInstructions] = useState(() => parcelState.handlingInstructions || '');
+  const [dimensions, setDimensions] = useState(() => parcelState.dimensions || { length: '', width: '', height: '', unit: 'cm' });
+  // 0 until /users/helpers responds — the admin sets these, they are not ₹150 by fiat
+  const [loadingRate, setLoadingRate] = useState(0);
+  const [unloadingRate, setUnloadingRate] = useState(0);
   const [goodsSettings, setGoodsSettings] = useState({
     enable_fragile_option: true,
     enable_helper_booking: true,
@@ -1113,17 +1118,15 @@ const SenderReceiverDetails = () => {
       goodsCategory,
       fragile,
       helperType,
+      materialName,
+      packageCount,
+      handlingInstructions,
+      dimensions,
     }));
-  }, [drop, dropCoords, effectiveReceiverMobile, effectiveReceiverName, parcelState, pickup, pickupCoords, senderMobile, senderName, goodsWeight, goodsCategory, fragile, helperType]);
+  }, [drop, dropCoords, effectiveReceiverMobile, effectiveReceiverName, parcelState, pickup, pickupCoords, senderMobile, senderName, goodsWeight, goodsCategory, fragile, helperType, materialName, packageCount, handlingInstructions, dimensions]);
 
   useEffect(() => {
     let active = true;
-
-    const MOCK_WAREHOUSES = [
-      { id: 'wh-1', name: 'Vijay Nagar Hub', address: 'Plot 45, Vijay Nagar Sector C, Indore', city: 'Indore', coordinates: [75.8937, 22.7533], is_pickup: true, is_drop: true, zone: 'Indore Main' },
-      { id: 'wh-2', name: 'Palasia Center', address: '12, Palasia Square, opposite Central Mall, Indore', city: 'Indore', coordinates: [75.8863, 22.7242], is_pickup: true, is_drop: false, zone: 'Indore East' },
-      { id: 'wh-3', name: 'Rajwada Outlet', address: 'Sarafa Bazar, near Rajwada Palace, Indore', city: 'Indore', coordinates: [75.8553, 22.7187], is_pickup: false, is_drop: true, zone: 'Indore Central' },
-    ];
 
     const loadZoneData = async () => {
       try {
@@ -1148,21 +1151,24 @@ const SenderReceiverDetails = () => {
         setZonePaths(allPaths);
         setServiceStores(allStores);
 
-        if (warehousesResponse?.data) {
-          const list = warehousesResponse.data.results || warehousesResponse.data.data || warehousesResponse.data || [];
-          setWarehouses(Array.isArray(list) && list.length > 0 ? list : MOCK_WAREHOUSES);
-        } else {
-          setWarehouses(MOCK_WAREHOUSES);
-        }
+        // Warehouses are admin-managed via /admin/warehouses. An empty list means
+        // the admin has not configured any, so show none rather than inventing
+        // hubs the driver cannot actually be sent to.
+        const warehouseList = warehousesResponse?.data?.results
+          || warehousesResponse?.data?.data
+          || warehousesResponse?.data
+          || [];
+        setWarehouses(Array.isArray(warehouseList) ? warehouseList : []);
 
-        if (helpersResponse?.data) {
-          const helpersList = helpersResponse.data.results || helpersResponse.data.data || helpersResponse.data || [];
-          if (helpersList.length > 0) {
-            const loadingHelper = helpersList.find(h => h.helper_type === 'loading' || h.helper_type === 'both');
-            const unloadingHelper = helpersList.find(h => h.helper_type === 'unloading' || h.helper_type === 'both');
-            if (loadingHelper) setLoadingRate(Number(loadingHelper.loading_charge || 150));
-            if (unloadingHelper) setUnloadingRate(Number(unloadingHelper.unloading_charge || 150));
-          }
+        const helpersList = helpersResponse?.data?.results
+          || helpersResponse?.data?.data
+          || helpersResponse?.data
+          || [];
+        if (Array.isArray(helpersList) && helpersList.length > 0) {
+          const loadingHelper = helpersList.find(h => h.helper_type === 'loading' || h.helper_type === 'both');
+          const unloadingHelper = helpersList.find(h => h.helper_type === 'unloading' || h.helper_type === 'both');
+          if (loadingHelper) setLoadingRate(Number(loadingHelper.loading_charge || 0));
+          if (unloadingHelper) setUnloadingRate(Number(unloadingHelper.unloading_charge || 0));
         }
         const remoteGoodsSettings = settingsResponse?.data?.data?.settings || settingsResponse?.data?.settings;
         if (remoteGoodsSettings) {
@@ -1173,7 +1179,7 @@ const SenderReceiverDetails = () => {
           setZones([]);
           setZonePaths([]);
           setServiceStores([]);
-          setWarehouses(MOCK_WAREHOUSES);
+          setWarehouses([]);
         }
       }
     };
@@ -1896,14 +1902,32 @@ const SenderReceiverDetails = () => {
           senderMobile,
           receiverName: effectiveReceiverName,
           receiverMobile: effectiveReceiverMobile,
-          // === SOW Fields ===
+          // === SOW load details ===
+          materialName,
+          weightKg: Number(String(goodsWeight).replace(/[^\d.]/g, '')) || 0,
+          weightUnit: 'kg',
+          packageCount: Math.max(1, Number(packageCount) || 1),
+          dimensions: {
+            length: Number(dimensions.length) || 0,
+            width: Number(dimensions.width) || 0,
+            height: Number(dimensions.height) || 0,
+            unit: dimensions.unit || 'cm',
+          },
+          handlingInstructions,
+          isFragile: fragile,
+          // Charges are re-resolved server-side from the Helper collection; these
+          // are sent only so the estimate shown matches what the server bills.
           helperBooked: helperType !== 'none',
           helperType,
-          loadingCharge: helperType === 'loading' || helperType === 'both' ? loadingRate : 0,
-          unloadingCharge: helperType === 'unloading' || helperType === 'both' ? unloadingRate : 0,
-          isFragile: fragile,
-          warehousePickupId: selectedWarehouse?.role === 'pickup' ? selectedWarehouse.id : null,
-          warehouseDropId: selectedWarehouse?.role === 'drop' ? selectedWarehouse.id : null,
+          helper: {
+            type: helperType,
+            loadingCharge: helperType === 'loading' || helperType === 'both' ? loadingRate : 0,
+            unloadingCharge: helperType === 'unloading' || helperType === 'both' ? unloadingRate : 0,
+          },
+          warehouse: {
+            pickupId: selectedWarehouse?.role === 'pickup' ? selectedWarehouse.id : '',
+            dropId: selectedWarehouse?.role === 'drop' ? selectedWarehouse.id : '',
+          },
         },
         isParcel: true,
         searchNonce: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -2138,10 +2162,65 @@ const SenderReceiverDetails = () => {
                     <option value="Construction">Construction Material</option>
                     <option value="Grocery">Grocery &amp; FMCG</option>
                     <option value="Industrial">Industrial Equipment</option>
+                    <option value="Documents">Documents &amp; Parcels</option>
+                    <option value="Appliances">Appliances</option>
+                    <option value="Office">Office Equipment</option>
                     <option value="Custom">Other / Custom</option>
                   </select>
                 </div>
               )}
+
+              {/* Material name — free text, distinct from the category above */}
+              <div>
+                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">Material Name</label>
+                <input
+                  type="text"
+                  value={materialName}
+                  onChange={(e) => setMaterialName(e.target.value)}
+                  placeholder="e.g. Refrigerator, cement bags, documents"
+                  className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none"
+                />
+              </div>
+
+              {/* Number of packages */}
+              <div>
+                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">Number Of Packages</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={packageCount}
+                  onChange={(e) => setPackageCount(e.target.value)}
+                  placeholder="1"
+                  className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none"
+                />
+              </div>
+
+              {/* Dimensions */}
+              <div>
+                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">Dimensions (Optional)</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {['length', 'width', 'height'].map((axis) => (
+                    <input
+                      key={axis}
+                      type="number"
+                      min="0"
+                      value={dimensions[axis]}
+                      onChange={(e) => setDimensions((prev) => ({ ...prev, [axis]: e.target.value }))}
+                      placeholder={axis.charAt(0).toUpperCase() + axis.slice(1)}
+                      className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none"
+                    />
+                  ))}
+                  <select
+                    value={dimensions.unit}
+                    onChange={(e) => setDimensions((prev) => ({ ...prev, unit: e.target.value }))}
+                    className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none"
+                  >
+                    <option value="cm">cm</option>
+                    <option value="inch">inch</option>
+                    <option value="ft">ft</option>
+                  </select>
+                </div>
+              </div>
 
               {/* Weight */}
               {goodsSettings.show_weight_field && (
@@ -2222,6 +2301,18 @@ const SenderReceiverDetails = () => {
                   />
                 </div>
               )}
+
+              {/* Special handling instructions */}
+              <div>
+                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">Special Handling Instructions</label>
+                <textarea
+                  rows={3}
+                  value={handlingInstructions}
+                  onChange={(e) => setHandlingInstructions(e.target.value)}
+                  placeholder="e.g. keep upright, do not stack, call before pickup"
+                  className="w-full resize-none rounded-2xl border border-slate-100 bg-slate-50/50 dark:bg-zinc-900/40 p-3.5 text-[13px] font-semibold text-slate-800 dark:text-slate-100 outline-none"
+                />
+              </div>
             </div>
           )}
         </motion.div>

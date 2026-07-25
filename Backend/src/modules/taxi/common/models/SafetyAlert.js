@@ -139,6 +139,19 @@ const safetyAlertSchema = new mongoose.Schema(
       trim: true,
       maxlength: 1000,
     },
+    notifiedContacts: {
+      type: [
+        {
+          name: { type: String, default: '', trim: true },
+          phone: { type: String, default: '', trim: true },
+          channels: { type: [String], default: [] },
+          delivered: { type: Boolean, default: false },
+          error: { type: String, default: '', trim: true },
+          notifiedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
     logs: {
       type: [safetyAlertLogSchema],
       default: [],

@@ -1,3 +1,5 @@
+import { ApiError } from '../../../../utils/ApiError.js';
+
 export const SUPERADMIN_PERMISSION = '*';
 
 export const ADMIN_PERMISSIONS = [
@@ -48,6 +50,17 @@ export const normalizeAdminPermissions = (permissions = []) => {
   }
 
   return [...new Set(normalized)];
+};
+
+// Route-level gate. Permission checks elsewhere are opt-in calls buried in the
+// service layer, which is how money-moving routes ended up with none — mount
+// this on the route instead so the check cannot be forgotten.
+export const requireAdminPermission = (permission, label = 'this resource') => (req, res, next) => {
+  if (hasAdminPermission(req.auth?.admin, permission)) {
+    return next();
+  }
+
+  return next(new ApiError(403, `You do not have permission to access ${label}`));
 };
 
 export const hasAdminPermission = (admin, permission) => {

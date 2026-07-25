@@ -29,6 +29,7 @@ import { AdminBusinessSetting } from "../../admin/models/AdminBusinessSetting.js
 import { Notification } from "../../admin/promotions/models/Notification.js";
 import { FleetVehicle } from "../../admin/models/FleetVehicle.js";
 import { Zone } from "../models/Zone.js";
+import { createOwnerPayoutRequest, expiryStatus } from "./ownerReportsController.js";
 import { uploadDataUrlToCloudinary } from "../../../../utils/cloudinaryUpload.js";
 import {
   comparePassword,
@@ -239,11 +240,20 @@ const normalizeFleetVehicleDocumentValue = (value) => {
     return null;
   }
 
+  // Document expiry (insurance/RC/permit/...) has no typed column on FleetVehicle,
+  // so it is normalised onto the entry inside the Mixed `documents` map and the
+  // "expiring soon" flags are derived in the owner compliance endpoints.
+  const rawExpiry = String(
+    value.expiryDate || value.expiry_date || value.validUpto || value.expiresAt || "",
+  ).trim();
+  const normalizedExpiry = rawExpiry ? expiryStatus(rawExpiry).expiryDate : "";
+
   return {
     ...value,
     previewUrl,
     secureUrl: String(value.secureUrl || previewUrl).trim(),
     uploaded: value.uploaded ?? true,
+    ...(normalizedExpiry ? { expiryDate: normalizedExpiry } : {}),
   };
 };
 
@@ -3113,7 +3123,8 @@ export const purchaseMyPartnerSubscription = async (req, res) => {
     entityId: req.auth?.sub,
     planId: req.body?.planId,
     autoRenew: req.body?.autoRenew,
-    paymentSource: req.body?.paymentSource || "wallet",
+    // never from req.body: paymentSource:'admin' skips the wallet debit entirely
+    paymentSource: "wallet",
   });
 
   res.json({
@@ -4472,9 +4483,13 @@ export const deleteCurrentDriverAccount = async (req, res) => {
 
 export const getMyWallet = async (req, res) => {
   if (String(req.auth?.role || "").toLowerCase() === "owner") {
-    const [owner, transactions, subscriptionSummary] = await Promise.all([
+    const [owner, transactions, ownerWithdrawals, subscriptionSummary] = await Promise.all([
       Owner.findById(req.auth.sub).lean(),
       OwnerWalletTransaction.find({ ownerId: req.auth.sub })
+        .sort({ createdAt: -1 })
+        .limit(25)
+        .lean(),
+      WithdrawalRequest.find({ owner_id: req.auth.sub })
         .sort({ createdAt: -1 })
         .limit(25)
         .lean(),
@@ -4503,7 +4518,14 @@ export const getMyWallet = async (req, res) => {
           balance: Number(item.balance || 0),
           createdAt: item.createdAt,
         })),
-        withdrawalRequests: [],
+        withdrawalRequests: ownerWithdrawals.map((item) => ({
+          _id: String(item._id),
+          transactionId: item.transactionId || "",
+          amount: Number(item.amount || 0),
+          payment_method: item.payment_method || "bank_transfer",
+          status: item.status || "pending",
+          createdAt: item.createdAt,
+        })),
         settings: await getWalletSettings(),
         subscriptionSummary,
       },
@@ -6288,6 +6310,12 @@ export const updateBusDriverLiveTripStatus = async (req, res) => {
 };
 
 export const createDriverWithdrawalRequest = async (req, res) => {
+  // Owners share the wallet screen with drivers; their payout path debits the
+  // owner wallet and writes the OwnerWalletTransaction ledger instead.
+  if (String(req.auth?.role || "").toLowerCase() === "owner") {
+    return createOwnerPayoutRequest(req, res);
+  }
+
   const driver = await Driver.findById(req.auth.sub);
 
   if (!driver) {
@@ -9565,6 +9593,10 @@ export const updateOwnerFleetDriver = async (req, res) => {
       req.body?.vehicleId ??
       "",
   ).trim();
+  const zoneFieldProvided =
+    req.body?.zoneId !== undefined ||
+    req.body?.zone_id !== undefined ||
+    req.body?.assignedZoneId !== undefined;
   const requestedZoneId = String(
     req.body?.zoneId ??
       req.body?.zone_id ??
@@ -9665,7 +9697,13 @@ export const updateOwnerFleetDriver = async (req, res) => {
   driver.city = city || driver.city || "";
   driver.salary = salaryValue;
   driver.assignedFleetVehicleId = assignedVehicle?._id || null;
-  driver.zoneId = assignedZone?._id || null;
+  // Only touch the zone when the caller actually sent one. This used to be an
+  // unconditional `assignedZone?._id || null`, so any partial PATCH (e.g. just
+  // assigning a vehicle) silently wiped the driver's zone and dropped them out of
+  // zone-based dispatch.
+  if (zoneFieldProvided) {
+    driver.zoneId = assignedZone?._id || null;
+  }
 
   if (assignedVehicle) {
     driver.vehicleTypeId = assignedVehicle.vehicle_type_id?._id || null;

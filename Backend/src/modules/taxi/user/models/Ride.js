@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { RIDE_LIVE_STATUS, RIDE_STATUS } from '../../constants/index.js';
+import { parcelDetailsDefinition } from './parcelDetailsSchema.js';
 
 const rideMessageSchema = new mongoose.Schema(
   {
@@ -130,63 +131,37 @@ const rideSchema = new mongoose.Schema(
         trim: true,
       },
     },
-    parcel: {
-      category: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      weight: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      description: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      deliveryCategory: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      goodsTypeFor: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      deliveryScope: {
-        type: String,
-        enum: ['city', 'outstation'],
-        default: 'city',
-        lowercase: true,
-        trim: true,
-      },
-      isOutstation: {
-        type: Boolean,
-        default: false,
-      },
-      senderName: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      senderMobile: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      receiverName: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      receiverMobile: {
-        type: String,
-        default: '',
-        trim: true,
-      },
+    parcel: parcelDetailsDefinition,
+    // Intermediate waypoints between pickup and drop. The taxi UI already
+    // collected these and priced the route through them, but dropped them from the
+    // booking payload, so the driver never saw them. Also backs multi-stop goods
+    // delivery. `kind` distinguishes a pickup leg from a drop leg for goods.
+    stops: {
+      type: [
+        {
+          address: { type: String, default: '', trim: true },
+          location: {
+            type: {
+              type: String,
+              enum: ['Point'],
+              default: 'Point',
+            },
+            coordinates: { type: [Number], default: undefined },
+          },
+          kind: {
+            type: String,
+            enum: ['stop', 'pickup', 'drop'],
+            default: 'stop',
+            lowercase: true,
+            trim: true,
+          },
+          sequence: { type: Number, default: 0, min: 0 },
+          contactName: { type: String, default: '', trim: true },
+          contactMobile: { type: String, default: '', trim: true },
+          completedAt: { type: Date, default: null },
+        },
+      ],
+      default: [],
     },
     scheduledAt: {
       type: Date,
@@ -509,6 +484,26 @@ const rideSchema = new mongoose.Schema(
     walletSettledAt: {
       type: Date,
       default: null,
+    },
+    // Fleet-owner settlement (walletService.settleOwnerCommissionForRide).
+    // ownerSettledAt makes the credit idempotent.
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TaxiOwner',
+      default: null,
+      index: true,
+    },
+    ownerSettledAt: {
+      type: Date,
+      default: null,
+    },
+    ownerEarnings: {
+      type: Number,
+      default: 0,
+    },
+    ownerCommissionAmount: {
+      type: Number,
+      default: 0,
     },
     promo: {
       code: {

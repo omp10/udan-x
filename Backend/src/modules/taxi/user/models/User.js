@@ -262,6 +262,28 @@ const userSchema = new mongoose.Schema(
       ref: 'TaxiRide',
       default: null,
     },
+    emergencyContacts: {
+      type: [
+        {
+          name: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          phone: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          source: {
+            type: String,
+            enum: ['manual', 'device'],
+            default: 'manual',
+          },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

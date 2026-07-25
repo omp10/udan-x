@@ -142,6 +142,17 @@ const partnerSubscriptionSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Written by services/subscriptionRenewalWorker.js
+    renewalCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastRenewalError: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     cancelledAt: {
       type: Date,
       default: null,

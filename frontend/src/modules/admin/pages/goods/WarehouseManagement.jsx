@@ -331,7 +331,7 @@ const WarehouseManagement = () => {
   const loadWarehouses = async () => {
     try {
       setLoading(true);
-      const res = await adminService.getWarehouses?.().catch(() => ({ data: [] }));
+      const res = await adminService.getWarehouses();
       const list = res?.data?.results || res?.data?.data || res?.data || [];
       setWarehouses(Array.isArray(list) ? list : []);
     } catch {
@@ -371,7 +371,7 @@ const WarehouseManagement = () => {
   const handleDelete = async (w) => {
     if (!window.confirm(`Remove warehouse "${w.name}"?`)) return;
     try {
-      await adminService.deleteWarehouse?.(w.id || w._id);
+      await adminService.deleteWarehouse(w.id || w._id);
       toast.success('Warehouse removed');
       setWarehouses((prev) => prev.filter((x) => (x.id || x._id) !== (w.id || w._id)));
     } catch { toast.error('Failed to remove warehouse'); }
@@ -380,7 +380,7 @@ const WarehouseManagement = () => {
   const handleToggle = async (w) => {
     try {
       const id = w.id || w._id;
-      await adminService.updateWarehouse?.(id, { active: !w.active });
+      await adminService.updateWarehouse(id, { active: !w.active });
       setWarehouses((prev) => prev.map((x) => ((x.id || x._id) === id ? { ...x, active: !x.active } : x)));
       toast.success('Warehouse status updated');
     } catch { toast.error('Failed to update status'); }
@@ -392,10 +392,10 @@ const WarehouseManagement = () => {
     try {
       setSaving(true);
       if (editId) {
-        await adminService.updateWarehouse?.(editId, form);
+        await adminService.updateWarehouse(editId, form);
         toast.success('Warehouse updated');
       } else {
-        await adminService.createWarehouse?.(form);
+        await adminService.createWarehouse(form);
         toast.success('Warehouse added');
       }
       setShowModal(false);

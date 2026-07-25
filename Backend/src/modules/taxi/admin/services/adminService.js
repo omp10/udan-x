@@ -3970,6 +3970,41 @@ export const getOwnerDashboardData = async () => {
     }),
   ]);
 
+  // These 16 values were all hardcoded to 0 with a `// Placeholder` comment while
+  // the counts above were queried for real, so the owner dashboard showed a fully
+  // populated header over zeroed earnings. Now aggregated from settled rides.
+  const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
+
+  const buildEarningsGroup = () => ({
+    _id: null,
+    earnings: { $sum: { $ifNull: ['$fare', 0] } },
+    admin_commission: { $sum: { $ifNull: ['$commissionAmount', 0] } },
+    driver_earnings: { $sum: { $ifNull: ['$driverEarnings', 0] } },
+    owner_earnings: { $sum: { $ifNull: ['$ownerEarnings', 0] } },
+    cash: {
+      $sum: { $cond: [{ $eq: ['$paymentMethod', 'cash'] }, { $ifNull: ['$fare', 0] }, 0] },
+    },
+    online: {
+      $sum: { $cond: [{ $ne: ['$paymentMethod', 'cash'] }, { $ifNull: ['$fare', 0] }, 0] },
+    },
+  });
+
+  const settledMatch = { status: 'completed', walletSettledAt: { $ne: null } };
+
+  const [totalFleets, approvedFleets, todayTotals, overallTotals] = await Promise.all([
+    FleetVehicle.countDocuments(),
+    FleetVehicle.countDocuments({ approve: true }),
+    Ride.aggregate([
+      { $match: { ...settledMatch, completedAt: { $gte: startOfToday } } },
+      { $group: buildEarningsGroup() },
+    ]),
+    Ride.aggregate([{ $match: settledMatch }, { $group: buildEarningsGroup() }]),
+  ]);
+
+  const today = todayTotals?.[0] || {};
+  const overall = overallTotals?.[0] || {};
+  const money = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
   return {
     total_owners: totalOwners,
     approved_owners: approvedOwners,
@@ -3977,21 +4012,23 @@ export const getOwnerDashboardData = async () => {
     total_drivers: totalDrivers,
     approved_drivers: approvedDrivers,
     pending_drivers: totalDrivers - approvedDrivers,
-    total_fleets: 0, // Placeholder
-    approved_fleets: 0,
-    pending_fleets: 0,
-    today_earnings: 0,
-    today_cash: 0,
-    today_wallet: 0,
-    today_online: 0,
-    admin_commission: 0,
-    driver_earnings: 0,
-    overall_earnings: 0,
-    overall_cash: 0,
-    overall_wallet: 0,
-    overall_online: 0,
-    overall_admin_comm: 0,
-    overall_owner_earnings: 0,
+    total_fleets: totalFleets,
+    approved_fleets: approvedFleets,
+    pending_fleets: Math.max(totalFleets - approvedFleets, 0),
+    today_earnings: money(today.earnings),
+    today_cash: money(today.cash),
+    // Wallet-settled rides are the non-cash ones; kept as a distinct key because
+    // the existing admin UI reads today_wallet/overall_wallet separately.
+    today_wallet: money(today.online),
+    today_online: money(today.online),
+    admin_commission: money(today.admin_commission),
+    driver_earnings: money(today.driver_earnings),
+    overall_earnings: money(overall.earnings),
+    overall_cash: money(overall.cash),
+    overall_wallet: money(overall.online),
+    overall_online: money(overall.online),
+    overall_admin_comm: money(overall.admin_commission),
+    overall_owner_earnings: money(overall.owner_earnings),
   };
 };
 
@@ -5611,22 +5648,66 @@ export const getReferralDashboard = async () => {
     User.countDocuments(),
   ]);
 
-  // Mocking some parts for the dashboard view
+  // Was flagged "// Mocking some parts for the dashboard view" and returned
+  // active_referrals: 0, referral_earning: 0 and two arrays of twelve zeros. Now
+  // aggregated from the referredBy / referralCount fields that the runtime
+  // referral-reward code already maintains.
+  const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+
+  const monthlyPipeline = [
+    { $match: { referredBy: { $ne: null }, createdAt: { $gte: startOfYear } } },
+    { $group: { _id: { $month: '$createdAt' }, count: { $sum: 1 } } },
+  ];
+
+  const toMonthlySeries = (rows = []) => {
+    const series = Array(12).fill(0);
+    rows.forEach((row) => {
+      const monthIndex = Number(row._id) - 1;
+      if (monthIndex >= 0 && monthIndex < 12) {
+        series[monthIndex] = Number(row.count || 0);
+      }
+    });
+    return series;
+  };
+
+  const [
+    referredUsers,
+    referredDrivers,
+    userMonthly,
+    driverMonthly,
+    activeReferrers,
+    rewardTotals,
+  ] = await Promise.all([
+    User.countDocuments({ referredBy: { $ne: null } }),
+    Driver.countDocuments({ referredBy: { $ne: null } }),
+    User.aggregate(monthlyPipeline),
+    Driver.aggregate(monthlyPipeline),
+    Promise.all([
+      User.countDocuments({ referralCount: { $gt: 0 } }),
+      Driver.countDocuments({ referralCount: { $gt: 0 } }),
+    ]).then(([u, d]) => u + d),
+    // Referral rewards are paid as wallet credits tagged in the description.
+    WalletTransaction.aggregate([
+      { $match: { description: { $regex: 'referral', $options: 'i' } } },
+      { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } },
+    ]),
+  ]);
+
   return {
     total_drivers: totalDrivers,
     total_users: totalUsers,
-    active_referrals: 0,
-    referral_earning: 0,
+    active_referrals: activeReferrers,
+    referral_earning: Math.round((Number(rewardTotals?.[0]?.total || 0) + Number.EPSILON) * 100) / 100,
     user_referrals: {
-      normal_user: totalUsers,
-      referral_user: 0,
-      monthly: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      normal_user: Math.max(totalUsers - referredUsers, 0),
+      referral_user: referredUsers,
+      monthly: toMonthlySeries(userMonthly),
     },
     driver_referrals: {
-      normal_driver: totalDrivers,
-      referral_driver: 0,
-      monthly: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    }
+      normal_driver: Math.max(totalDrivers - referredDrivers, 0),
+      referral_driver: referredDrivers,
+      monthly: toMonthlySeries(driverMonthly),
+    },
   };
 };
 
@@ -9769,28 +9850,31 @@ export const listGoodsTypes = async () => {
   const items = await GoodsType.find().sort({ sort_order: 1, createdAt: -1 }).lean();
   const results = items.map(serializeGoodsType);
 
+  // Single-page paginator shape kept for the existing admin client. URLs are
+  // relative — they used to be hardcoded to http://localhost:5000, which shipped
+  // a dev origin to every caller that followed the links.
   return {
     success: true,
     results,
     paginator: {
       current_page: 1,
       data: results,
-      first_page_url: "http://localhost:5000/api/v1/admin/goods-types?page=1",
+      first_page_url: '/api/v1/admin/goods-types?page=1',
       from: 1,
       last_page: 1,
-      last_page_url: "http://localhost:5000/api/v1/admin/goods-types?page=1",
+      last_page_url: '/api/v1/admin/goods-types?page=1',
       links: [
-        { url: null, label: "&laquo; Previous", active: false },
-        { url: "http://localhost:5000/api/v1/admin/goods-types?page=1", label: "1", active: true },
-        { url: null, label: "Next &raquo;", active: false }
+        { url: null, label: '&laquo; Previous', active: false },
+        { url: '/api/v1/admin/goods-types?page=1', label: '1', active: true },
+        { url: null, label: 'Next &raquo;', active: false },
       ],
       next_page_url: null,
-      path: "http://localhost:5000/api/v1/admin/goods-types",
-      per_page: 50,
+      path: '/api/v1/admin/goods-types',
+      per_page: results.length || 50,
       prev_page_url: null,
       to: results.length,
-      total: results.length
-    }
+      total: results.length,
+    },
   };
 };
 
@@ -11057,16 +11141,69 @@ export const buildFinanceReport = async (query = {}) => {
   };
 };
 
-export const buildFleetFinanceReport = async () => {
-  const owners = await listOwners();
+// Was a roster dump with ZERO financial columns despite being the "fleet finance"
+// report, and it ignored every query param. Now joins settled-ride earnings per
+// owner and honours the date range.
+export const buildFleetFinanceReport = async (query = {}) => {
+  const match = { status: 'completed', walletSettledAt: { $ne: null }, ownerId: { $ne: null } };
+  const from = query.from || query.start_date ? new Date(query.from || query.start_date) : null;
+  const to = query.to || query.end_date ? new Date(query.to || query.end_date) : null;
+
+  if (from && !Number.isNaN(from.getTime())) {
+    match.completedAt = { $gte: from };
+    if (to && !Number.isNaN(to.getTime())) {
+      match.completedAt.$lte = to;
+    }
+  }
+
+  const [owners, earningsRows] = await Promise.all([
+    listOwners(),
+    Ride.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$ownerId',
+          trips: { $sum: 1 },
+          gross_fare: { $sum: { $ifNull: ['$fare', 0] } },
+          admin_commission: { $sum: { $ifNull: ['$commissionAmount', 0] } },
+          owner_commission: { $sum: { $ifNull: ['$ownerCommissionAmount', 0] } },
+          owner_earnings: { $sum: { $ifNull: ['$ownerEarnings', 0] } },
+        },
+      },
+    ]),
+  ]);
+
+  const money = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+  const byOwnerId = new Map(earningsRows.map((row) => [String(row._id), row]));
+
   return {
-    headers: ['company_name', 'owner', 'transport_type', 'active'],
-    rows: owners.map((item) => ({
-      company_name: item.company_name,
-      owner: item.name,
-      transport_type: item.transport_type,
-      active: item.active,
-    }))
+    headers: [
+      'company_name',
+      'owner',
+      'transport_type',
+      'active',
+      'trips',
+      'gross_fare',
+      'owner_earnings',
+      'owner_commission',
+      'admin_commission',
+      'wallet_balance',
+    ],
+    rows: owners.map((item) => {
+      const totals = byOwnerId.get(String(item.id || item._id)) || {};
+      return {
+        company_name: item.company_name,
+        owner: item.name,
+        transport_type: item.transport_type,
+        active: item.active,
+        trips: Number(totals.trips || 0),
+        gross_fare: money(totals.gross_fare),
+        owner_earnings: money(totals.owner_earnings),
+        owner_commission: money(totals.owner_commission),
+        admin_commission: money(totals.admin_commission),
+        wallet_balance: money(item.wallet?.balance ?? item.wallet_balance),
+      };
+    }),
   };
 };
 

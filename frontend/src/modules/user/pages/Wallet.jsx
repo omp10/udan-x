@@ -1,10 +1,18 @@
 import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion as Motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, History, Gift } from 'lucide-react';
+import { motion as Motion } from 'framer-motion';
+import {
+  ArrowDownLeft,
+  ArrowLeft,
+  ArrowUpRight,
+  CheckCircle2,
+  ChevronRight,
+  Gift,
+  Plus,
+} from 'lucide-react';
 import { userAuthService } from '../services/authService';
+import { BottomSheet, Button, Card, EmptyState, Input, Skeleton } from '../components/ui';
 import { useSettings } from '../../../shared/context/SettingsContext';
-import { useUserTheme } from '../../../shared/context/UserThemeContext';
 import { openExternalCheckout } from '../../../shared/utils/externalNavigation';
 import { rememberPendingPhonePeRedirect } from '../../../shared/utils/phonePeResume';
 
@@ -211,210 +219,201 @@ const Wallet = () => {
     }
   };
 
-  const { theme } = useUserTheme();
-  const isDark = theme === 'dark';
-
   return (
-    <div className={`min-h-screen max-w-lg mx-auto flex flex-col font-sans pb-28 relative overflow-x-hidden transition-colors duration-300 ${
-      isDark ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'
-    }`}>
-      <AnimatePresence>
-        {showAddMoney && (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/40 backdrop-blur-sm p-4">
-            <Motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              className={`w-full max-w-md rounded-3xl p-8 pb-10 space-y-8 shadow-2xl relative ${isDark ? 'bg-slate-900 text-white shadow-black/40 border border-slate-800' : 'bg-white text-slate-900 shadow-slate-900/10'}`}
+    <div className="relative flex min-h-screen max-w-lg mx-auto flex-col overflow-x-hidden bg-surface-page pb-28 font-sans text-ink">
+      <BottomSheet
+        open={showAddMoney}
+        onClose={() => setShowAddMoney(false)}
+        title="Add money"
+        subtitle={activePaymentGateway ? `Top-up via ${walletTopUpGatewayLabel}` : 'Select amount to top-up'}
+      >
+        {isSuccess ? (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <div className="flex h-16 w-16 items-center justify-center rounded-pill bg-emerald-500/12 text-emerald-500">
+              <CheckCircle2 size={32} strokeWidth={2.2} />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-black text-ink">Wallet refilled</p>
+              <p className="mt-1 text-xs font-bold text-ink-faint">Balance updated successfully</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              aria-label="Top-up amount"
+              leftIcon={<span className="text-base font-black">₹</span>}
+              className="h-16 text-center text-2xl font-black"
+            />
+
+            <div className="grid grid-cols-3 gap-3">
+              {['100', '500', '1000'].map((val) => (
+                <Button
+                  key={val}
+                  variant={amount === val ? 'primary' : 'subtle'}
+                  onClick={() => setAmount(val)}
+                >
+                  +₹{val}
+                </Button>
+              ))}
+            </div>
+
+            <Button
+              block
+              size="lg"
+              loading={isAdding}
+              disabled={!amount}
+              rightIcon={<Plus size={18} strokeWidth={2.6} />}
+              onClick={handleAddMoney}
             >
-              <button
-                onClick={() => setShowAddMoney(false)}
-                className={`absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-colors ${isDark ? 'bg-slate-950 text-slate-500 hover:text-white' : 'bg-slate-50 text-slate-400'}`}
-              >
-                <Plus size={20} className="rotate-45" />
-              </button>
-
-                <div className="text-center space-y-2">
-                <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Add Money</h3>
-                <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  {activePaymentGateway ? `Top-up via ${walletTopUpGatewayLabel}` : 'Select amount to top-up'}
-                </p>
-              </div>
-
-              {isSuccess ? (
-                <Motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center py-8 gap-4">
-                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
-                    <History size={32} />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-slate-900">Wallet Refilled!</p>
-                    <p className="text-xs font-medium text-slate-400 mt-1">Balance updated successfully</p>
-                  </div>
-                </Motion.div>
-              ) : (
-                <div className="space-y-8">
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xl font-bold text-slate-400">₹</span>
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full h-16 bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-6 text-2xl font-bold text-slate-900 focus:outline-none focus:border-slate-300 transition-all text-center placeholder:text-slate-200"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    {['100', '500', '1000'].map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => setAmount(val)}
-                        className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                          amount === val ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-600 border border-slate-100'
-                        }`}
-                      >
-                        +₹{val}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={handleAddMoney}
-                    disabled={isAdding || !amount}
-                    className={`w-full h-14 rounded-2xl font-bold text-base shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 ${
-                      isAdding || !amount ? 'bg-slate-100 text-slate-400 shadow-none cursor-not-allowed' : 'bg-slate-900 text-white shadow-slate-200'
-                    }`}
-                  >
-                    {isAdding ? 'Processing...' : 'Refill Wallet'}
-                    {!isAdding && <Plus size={18} />}
-                  </button>
-                </div>
-              )}
-            </Motion.div>
+              {isAdding ? 'Processing...' : 'Refill wallet'}
+            </Button>
           </div>
         )}
-      </AnimatePresence>
+      </BottomSheet>
 
-      <header className={`px-5 pt-10 pb-4 sticky top-0 z-20 border-b transition-colors duration-300 ${isDark ? 'bg-slate-900/90 border-slate-800 text-white shadow-sm' : 'bg-white border-slate-100 text-slate-900 shadow-sm'}`}>
+      <header className="sticky top-0 z-20 border-b border-line bg-surface px-5 pt-10 pb-4 shadow-soft">
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Back"
             onClick={() => navigate(-1)}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center shadow-sm active:scale-95 transition-all cursor-pointer ${isDark ? 'border-slate-800 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-900'}`}
+            className="h-9 w-9 px-0"
           >
-            <ArrowLeft size={18} className={isDark ? 'text-white' : 'text-slate-900'} />
-          </button>
-          <h1 className={`text-[19px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>My Wallet</h1>
+            <ArrowLeft size={18} strokeWidth={2.5} />
+          </Button>
+          <h1 className="text-[19px] font-black tracking-tight text-ink">My Wallet</h1>
         </div>
       </header>
 
-      <div className="px-5 mt-6">
-        <Motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`rounded-3xl p-8 shadow-xl relative overflow-hidden border ${isDark ? 'bg-slate-900 border-slate-800 text-white shadow-black/40' : 'bg-[#FFFDF0] border-yellow-100/70 text-slate-900 shadow-yellow-900/5'}`}
-        >
-          <div className="relative z-10 flex flex-col gap-8">
-            <div className="space-y-1">
-              <p className={`font-bold uppercase tracking-wider text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Available Balance</p>
-              <h2 className="text-3xl font-black tracking-tight">
-                {walletLoading ? (
-                  <>₹ 0<span className={`text-xl ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>.00</span></>
-                ) : (
-                  <>₹ {balanceText.whole}<span className={`text-xl ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>.{balanceText.decimals}</span></>
-                )}
+      <div className="mt-6 px-5">
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="p-6">
+            <p className="text-2xs font-black uppercase tracking-[0.2em] text-ink-faint">Available balance</p>
+            {walletLoading ? (
+              <Skeleton className="mt-3 h-9 w-40 rounded-control" />
+            ) : (
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-ink">
+                ₹ {balanceText.whole}
+                <span className="text-xl text-ink-faint">.{balanceText.decimals}</span>
               </h2>
-              {walletError && <p className="text-xs font-bold text-rose-400 mt-2">{walletError}</p>}
-              {activePaymentGateway && !canTopUpWallet && (
-                <p className="text-xs font-bold text-amber-300 mt-2">
-                  {walletTopUpGatewayLabel} is active, but wallet top-up is not available for it yet.
-                </p>
-              )}
-            </div>
+            )}
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setWalletError('');
-                  setShowAddMoney(true);
-                }}
-                disabled={!canTopUpWallet}
-                className="flex-1 bg-white text-slate-900 h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
-              >
-                <Plus size={16} strokeWidth={2.5} />
-                Add Money
-              </button>
-            </div>
-          </div>
+            {walletError && <p className="mt-2 text-xs font-bold text-rose-500">{walletError}</p>}
+            {activePaymentGateway && !canTopUpWallet && (
+              <p className="mt-2 text-xs font-bold text-amber-500">
+                {walletTopUpGatewayLabel} is active, but wallet top-up is not available for it yet.
+              </p>
+            )}
+
+            <Button
+              block
+              size="lg"
+              className="mt-6"
+              disabled={!canTopUpWallet}
+              leftIcon={<Plus size={16} strokeWidth={2.6} />}
+              onClick={() => {
+                setWalletError('');
+                setShowAddMoney(true);
+              }}
+            >
+              Add money
+            </Button>
+          </Card>
         </Motion.div>
       </div>
 
-      <div className="px-5 mt-6">
-        <Motion.button
-          whileHover={{ scale: 1.02, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+      <div className="mt-4 px-5">
+        <Card
+          role="button"
+          tabIndex={0}
           onClick={() => navigate(`${basePath}/referral`)}
-          className={`w-full border rounded-3xl p-5 flex items-center gap-4 shadow-md group cursor-pointer relative overflow-hidden text-left ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100/30 border-yellow-250'}`}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') navigate(`${basePath}/referral`);
+          }}
+          className="flex cursor-pointer items-center gap-4 p-5 transition-transform active:scale-[0.99]"
         >
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shrink-0 group-hover:scale-110 group-hover:rotate-6 duration-300 ${isDark ? 'bg-slate-950 text-white group-hover:bg-white group-hover:text-slate-950' : 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md shadow-indigo-500/20'}`}>
-            <Gift size={20} />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-card bg-brand-soft text-brand">
+            <Gift size={20} strokeWidth={2.4} />
           </div>
-          <div className="flex-1 text-left">
-            <h4 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Refer & Earn <span className="text-emerald-600 dark:text-emerald-400 font-extrabold ml-1">₹50</span>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-sm font-black text-ink">
+              Refer & Earn <span className="ml-1 font-black text-emerald-500">₹50</span>
             </h4>
-            <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Invite friends to {appName}</p>
+            <p className="mt-0.5 text-2xs font-bold uppercase tracking-wider text-ink-faint">
+              Invite friends to {appName}
+            </p>
           </div>
-          <ArrowLeft size={18} className={`rotate-180 transition-all duration-300 group-hover:translate-x-1 ${isDark ? 'text-slate-600 group-hover:text-white' : 'text-slate-900'}`} />
-        </Motion.button>
+          <ChevronRight size={18} className="shrink-0 text-ink-faint" />
+        </Card>
       </div>
 
-      <div className="px-5 mt-10">
-        <div className="flex items-center justify-between mb-4 px-1">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction History</h3>
-          <button onClick={() => navigate(`${basePath}/activity`)} className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>View All</button>
+      <div className="mt-8 px-5">
+        <div className="mb-3 flex items-center justify-between px-1">
+          <h3 className="text-2xs font-black uppercase tracking-[0.26em] text-ink-faint">Transaction history</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`${basePath}/activity`)}
+            className="text-2xs uppercase tracking-wider"
+          >
+            View all
+          </Button>
         </div>
-        
-        <div className={`rounded-3xl border shadow-sm overflow-hidden divide-y ${isDark ? 'bg-slate-900 border-slate-800 divide-slate-800/60' : 'bg-white border-slate-100 divide-slate-50'}`}>
-          {walletLoading ? (
-            <div className="p-8 text-center text-xs font-bold text-slate-400">Loading transactions...</div>
-          ) : wallet.recentTransactions?.length ? (
-            wallet.recentTransactions.map((tx) => {
+
+        {walletLoading ? (
+          <div className="space-y-2.5">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-[68px] rounded-card-lg" />
+            ))}
+          </div>
+        ) : wallet.recentTransactions?.length ? (
+          <Card padded={false} className="divide-y divide-line">
+            {wallet.recentTransactions.map((tx) => {
               const isDebit = tx.kind === 'debit';
               const title = tx.title || (isDebit ? 'Debit' : 'Credit');
-              const sign = isDebit ? '-' : '+';
               const amountText = formatInr(tx.amount);
-              const whenText = tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+              const whenText = tx.createdAt
+                ? new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '';
 
               return (
-                <div key={tx.id} className={`flex items-center gap-4 p-4 transition-colors group ${isDark ? 'hover:bg-slate-850' : 'hover:bg-slate-50'}`}>
+                <div key={tx.id} className="flex items-center gap-4 p-4">
                   <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                      isDebit ? (isDark ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-600') : (isDark ? 'bg-emerald-950/30 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-control ${
+                      isDebit ? 'bg-surface-sunken text-ink-soft' : 'bg-emerald-500/12 text-emerald-500'
                     }`}
                   >
-                    {isDebit ? <ArrowLeft size={16} className="rotate-45" /> : <Plus size={16} />}
+                    {isDebit ? <ArrowUpRight size={16} strokeWidth={2.6} /> : <ArrowDownLeft size={16} strokeWidth={2.6} />}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{title}</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{whenText}</p>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-sm font-black text-ink">{title}</h4>
+                    <p className="mt-0.5 text-2xs font-bold uppercase text-ink-faint">{whenText}</p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <h4 className={`text-base font-bold ${isDebit ? (isDark ? 'text-white' : 'text-slate-900') : 'text-emerald-600'}`}>
-                      {sign}₹{amountText}
+                  <div className="shrink-0 text-right">
+                    <h4 className={`text-base font-black ${isDebit ? 'text-ink' : 'text-emerald-500'}`}>
+                      {isDebit ? '-' : '+'}₹{amountText}
                     </h4>
-                    <span className={`text-[8px] font-bold uppercase tracking-wider ${isDebit ? 'text-slate-400' : 'text-emerald-400'}`}>
+                    <span className="text-3xs font-black uppercase tracking-wider text-ink-faint">
                       {isDebit ? 'Debit' : 'Credit'}
                     </span>
                   </div>
                 </div>
               );
-            })
-          ) : (
-            <div className="p-8 text-center text-xs font-bold text-slate-400">No transactions yet</div>
-          )}
-        </div>
+            })}
+          </Card>
+        ) : (
+          <EmptyState
+            icon={ArrowDownLeft}
+            title="No transactions yet"
+            description="Your top-ups and ride payments will show up here."
+          />
+        )}
       </div>
     </div>
   );

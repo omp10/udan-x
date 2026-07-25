@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { ApiError } from '../../../utils/ApiError.js';
 import { getOrLoadCachedValue } from '../../../utils/cache.js';
-import { normalizePoint, toPoint } from '../../../utils/geo.js';
+import { haversineKm, normalizePoint, toPoint } from '../../../utils/geo.js';
 import { RIDE_LIVE_STATUS, RIDE_STATUS } from '../constants/index.js';
 import { AdminBusinessSetting } from '../admin/models/AdminBusinessSetting.js';
 import { SetPrice } from '../admin/models/SetPrice.js';
@@ -350,21 +350,139 @@ const generateRideOtp = () => String(Math.floor(1000 + Math.random() * 9000));
 const DEFAULT_BID_STEP_AMOUNT = 10;
 const DEFAULT_MAX_BID_STEPS = 5;
 
-const normalizeParcelPayload = (parcel = {}) => ({
-  category: String(parcel.category || '').trim(),
-  weight: String(parcel.weight || '').trim(),
-  description: String(parcel.description || '').trim(),
-  deliveryCategory: String(parcel.deliveryCategory || parcel.delivery_category || '').trim().toLowerCase(),
-  goodsTypeFor: String(parcel.goodsTypeFor || parcel.goods_type_for || '').trim(),
-  deliveryScope: String(parcel.deliveryScope || (parcel.isOutstation ? 'outstation' : 'city')).trim().toLowerCase() === 'outstation'
-    ? 'outstation'
-    : 'city',
-  isOutstation: Boolean(parcel.isOutstation || String(parcel.deliveryScope || '').trim().toLowerCase() === 'outstation'),
-  senderName: String(parcel.senderName || '').trim(),
-  senderMobile: String(parcel.senderMobile || '').trim(),
-  receiverName: String(parcel.receiverName || '').trim(),
-  receiverMobile: String(parcel.receiverMobile || '').trim(),
-});
+const toNonNegativeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
+// Pulls a numeric kg weight out of whatever the client sent: an explicit
+// weightKg, a ton value, or the legacy free-text band ("Under 5kg", "12 kg").
+const resolveParcelWeightKg = (parcel = {}) => {
+  const unit = String(parcel.weightUnit || 'kg').trim().toLowerCase() === 'ton' ? 'ton' : 'kg';
+  const explicit = toNonNegativeNumber(parcel.weightKg, 0);
+
+  if (explicit > 0) {
+    return { weightKg: unit === 'ton' ? explicit * 1000 : explicit, weightUnit: unit };
+  }
+
+  const parsedFromLabel = Number(String(parcel.weight || '').replace(/[^\d.]/g, ''));
+  const fromLabel = Number.isFinite(parsedFromLabel) ? Math.max(0, parsedFromLabel) : 0;
+  const labelIsTon = /ton/i.test(String(parcel.weight || ''));
+
+  return {
+    weightKg: labelIsTon ? fromLabel * 1000 : fromLabel,
+    weightUnit: labelIsTon ? 'ton' : unit,
+  };
+};
+
+export const normalizeParcelPayload = (parcel = {}) => {
+  const { weightKg, weightUnit } = resolveParcelWeightKg(parcel);
+  const dimensions = parcel.dimensions || {};
+  const dimensionUnit = String(dimensions.unit || 'cm').trim().toLowerCase();
+
+  return {
+    category: String(parcel.category || '').trim(),
+    weight: String(parcel.weight || '').trim(),
+    weightKg,
+    weightUnit,
+    materialName: String(parcel.materialName || parcel.material_name || '').trim(),
+    dimensions: {
+      length: toNonNegativeNumber(dimensions.length, 0),
+      width: toNonNegativeNumber(dimensions.width, 0),
+      height: toNonNegativeNumber(dimensions.height, 0),
+      unit: ['cm', 'inch', 'ft'].includes(dimensionUnit) ? dimensionUnit : 'cm',
+    },
+    packageCount: Math.max(1, Math.floor(toNonNegativeNumber(parcel.packageCount, 1)) || 1),
+    isFragile: Boolean(parcel.isFragile),
+    handlingInstructions: String(parcel.handlingInstructions || parcel.handling_instructions || '').trim(),
+    description: String(parcel.description || '').trim(),
+    deliveryCategory: String(parcel.deliveryCategory || parcel.delivery_category || '').trim().toLowerCase(),
+    goodsTypeFor: String(parcel.goodsTypeFor || parcel.goods_type_for || '').trim(),
+    deliveryScope: String(parcel.deliveryScope || (parcel.isOutstation ? 'outstation' : 'city')).trim().toLowerCase() === 'outstation'
+      ? 'outstation'
+      : 'city',
+    isOutstation: Boolean(parcel.isOutstation || String(parcel.deliveryScope || '').trim().toLowerCase() === 'outstation'),
+    // helper charges are overwritten server-side in deliveryService; whatever the
+    // client claims here is only a hint about which option it selected.
+    helper: {
+      type: ['loading', 'unloading', 'both'].includes(String(parcel.helper?.type || parcel.helperType || '').trim().toLowerCase())
+        ? String(parcel.helper?.type || parcel.helperType).trim().toLowerCase()
+        : 'none',
+      loadingCharge: toNonNegativeNumber(parcel.helper?.loadingCharge, 0),
+      unloadingCharge: toNonNegativeNumber(parcel.helper?.unloadingCharge, 0),
+      totalCharge: toNonNegativeNumber(parcel.helper?.totalCharge, 0),
+    },
+    warehouse: {
+      pickupId: String(parcel.warehouse?.pickupId || parcel.pickupWarehouseId || '').trim(),
+      dropId: String(parcel.warehouse?.dropId || parcel.dropWarehouseId || '').trim(),
+    },
+    senderName: String(parcel.senderName || '').trim(),
+    senderMobile: String(parcel.senderMobile || '').trim(),
+    receiverName: String(parcel.receiverName || '').trim(),
+    receiverMobile: String(parcel.receiverMobile || '').trim(),
+    deliveryOtp: String(parcel.deliveryOtp || '').trim(),
+    proofOfDelivery: {
+      photoUrl: String(parcel.proofOfDelivery?.photoUrl || '').trim(),
+      signatureUrl: String(parcel.proofOfDelivery?.signatureUrl || '').trim(),
+      receivedBy: String(parcel.proofOfDelivery?.receivedBy || '').trim(),
+      deliveredAt: parcel.proofOfDelivery?.deliveredAt || null,
+    },
+  };
+};
+
+// Waypoints between pickup and drop. Capped so a client cannot post an unbounded
+// array, and each stop must carry usable coordinates or it is discarded.
+const MAX_RIDE_STOPS = 10;
+
+// Accepts either a plain address string (what the taxi UI collects — it hands the
+// raw text to Google as a waypoint and never resolves coordinates) or an object
+// with coordinates (the goods multi-stop flow). A stop is kept if it has a usable
+// address OR valid coordinates; coordinates stay undefined when not supplied so
+// the 2dsphere-friendly shape is not populated with junk.
+export const normalizeStopsPayload = (stops = []) => {
+  if (!Array.isArray(stops)) {
+    return [];
+  }
+
+  return stops
+    .map((stop, index) => {
+      const isPlainAddress = typeof stop === 'string';
+      const address = String(isPlainAddress ? stop : stop?.address || '').trim();
+
+      const raw = isPlainAddress
+        ? null
+        : (Array.isArray(stop?.coordinates) ? stop.coordinates : stop?.location?.coordinates);
+      const [longitude, latitude] = (raw || []).map(Number);
+      const hasCoordinates =
+        Number.isFinite(longitude) &&
+        Number.isFinite(latitude) &&
+        longitude >= -180 && longitude <= 180 &&
+        latitude >= -90 && latitude <= 90;
+
+      if (!address && !hasCoordinates) {
+        return null;
+      }
+
+      const kind = String(isPlainAddress ? 'stop' : stop?.kind || 'stop').trim().toLowerCase();
+      const sequence = !isPlainAddress && Number.isFinite(Number(stop?.sequence))
+        ? Math.max(0, Number(stop.sequence))
+        : index;
+
+      return {
+        address,
+        ...(hasCoordinates ? { location: { type: 'Point', coordinates: [longitude, latitude] } } : {}),
+        kind: ['stop', 'pickup', 'drop'].includes(kind) ? kind : 'stop',
+        sequence,
+        contactName: String(isPlainAddress ? '' : stop?.contactName || '').trim(),
+        contactMobile: String(isPlainAddress ? '' : stop?.contactMobile || '').trim(),
+        completedAt: null,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.sequence - b.sequence)
+    .slice(0, MAX_RIDE_STOPS)
+    .map((stop, index) => ({ ...stop, sequence: index }));
+};
 
 const normalizeIntercityPayload = (intercity = {}) => ({
   bookingId: String(intercity.bookingId || '').trim(),
@@ -707,6 +825,40 @@ export const normalizeAllowedRidePaymentMethods = (paymentTypes = []) => {
   return unique.length ? unique : ['cash', 'online'];
 };
 
+const roundCurrency = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
+// Server-authoritative taxi fare from the admin's SetPrice rule. Mirrors
+// computeDeliveryFareBreakdown in user/services/deliveryService.js.
+// `configured: false` means this vehicle/zone has no usable pricing row, and the
+// caller keeps the client's fare so un-priced deployments still book.
+export const computeTaxiFareBreakdown = ({ pricingRule, distanceKm = 0, durationMinutes = 0, isOutstation = false }) => {
+  const pick = (outstationKey, key) =>
+    Math.max(0, Number((isOutstation ? pricingRule?.[outstationKey] : pricingRule?.[key]) || 0));
+
+  const basePrice = pick('outstation_base_price', 'base_price');
+  const baseDistance = pick('outstation_base_distance', 'base_distance');
+  const pricePerDistance = pick('outstation_price_per_distance', 'price_per_distance');
+  const timePrice = pick('outstation_time_price', 'time_price');
+
+  if (basePrice <= 0 && pricePerDistance <= 0) {
+    return { configured: false, total: 0, subtotal: 0, serviceTaxPercentage: 0, serviceTaxAmount: 0 };
+  }
+
+  const chargeableDistanceKm = Math.max(0, Math.max(0, distanceKm) - baseDistance);
+  const subtotal =
+    basePrice + chargeableDistanceKm * pricePerDistance + Math.max(0, durationMinutes) * timePrice;
+  const serviceTaxPercentage = Math.max(0, Number(pricingRule?.service_tax || 0));
+  const serviceTaxAmount = (subtotal * serviceTaxPercentage) / 100;
+
+  return {
+    configured: true,
+    total: roundCurrency(subtotal + serviceTaxAmount),
+    subtotal: roundCurrency(subtotal),
+    serviceTaxPercentage: roundCurrency(serviceTaxPercentage),
+    serviceTaxAmount: roundCurrency(serviceTaxAmount),
+  };
+};
+
 const SET_PRICE_CACHE_TTL_MS = 30_000;
 
 export const resolveSetPriceForRide = async ({ zoneId = null, serviceLocationId = null, transportType = 'taxi', vehicleTypeId = null }) => {
@@ -899,6 +1051,7 @@ export const createRideRecord = async ({
   bookingMode,
   userMaxBidFare,
   bidStepAmount,
+  stops,
 }) => {
   const user = await User.findById(userId);
 
@@ -908,7 +1061,9 @@ export const createRideRecord = async ({
 
   await clearUserActiveRideIfPresent(user);
 
-  const safeFare = Number(fare);
+  // reassigned below once the admin pricing rule is resolved — see the
+  // server-authoritative fare block. Never trust the client's `fare`.
+  let safeFare = Number(fare);
   const safeEstimatedDistanceMeters = Math.max(0, Number(estimatedDistanceMeters || 0));
   const safeEstimatedDurationMinutes = Math.max(0, Number(estimatedDurationMinutes || 0));
 
@@ -957,6 +1112,25 @@ export const createRideRecord = async ({
     2,
   );
   const isOutstationBiddingFlow = normalizedServiceType === 'intercity';
+
+  // Server-authoritative fare. The client sends `fare` and
+  // `estimatedDistanceMeters`; both are advisory. Distance is floored at the
+  // straight-line distance between the two points so a client cannot claim a
+  // 40km trip is 0km. Parcels are skipped: deliveryService already prices them
+  // from Vehicle.delivery_distance_pricing before calling us.
+  if (normalizedServiceType !== 'parcel') {
+    const serverFare = computeTaxiFareBreakdown({
+      pricingRule,
+      distanceKm: Math.max(haversineKm(pickupCoords, dropCoords), safeEstimatedDistanceMeters / 1000),
+      durationMinutes: safeEstimatedDurationMinutes,
+      isOutstation: isOutstationBiddingFlow,
+    });
+
+    if (serverFare.configured) {
+      safeFare = serverFare.total;
+    }
+  }
+
   const pricingNegotiationMode =
     supportsBidding && requestedBookingMode === 'bidding'
       ? isOutstationBiddingFlow
@@ -1122,6 +1296,7 @@ export const createRideRecord = async ({
       pricingSnapshot,
       parcel: normalizeParcelPayload(parcel),
       intercity: normalizeIntercityPayload(intercity),
+      stops: normalizeStopsPayload(stops),
       scheduledAt: normalizedScheduledAt,
       status: RIDE_STATUS.SEARCHING,
       liveStatus: RIDE_LIVE_STATUS.SEARCHING,
@@ -1177,6 +1352,7 @@ export const createRideRecord = async ({
             pricingSnapshot,
             parcel: normalizeParcelPayload(parcel),
             intercity: normalizeIntercityPayload(intercity),
+            stops: normalizeStopsPayload(stops),
             scheduledAt: normalizedScheduledAt,
             status: RIDE_STATUS.SEARCHING,
             liveStatus: RIDE_LIVE_STATUS.SEARCHING,
@@ -1658,7 +1834,7 @@ const rideStatusConfig = {
   },
 };
 
-export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymentMethod }) => {
+export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymentMethod, otp }) => {
   const config = rideStatusConfig[nextStatus];
 
   if (!config) {
@@ -1673,6 +1849,19 @@ export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymen
 
   if (!config.allowedCurrent.includes(ride.liveStatus)) {
     throw new ApiError(409, `Ride cannot move from ${ride.liveStatus} to ${nextStatus}`);
+  }
+
+  // The rider's OTP proves the driver is physically with them before the trip
+  // starts. Only enforced on the accepted/arriving -> started edge, so a
+  // repeated `started` (idempotent retry) does not demand it again.
+  if (
+    nextStatus === RIDE_LIVE_STATUS.STARTED &&
+    ride.liveStatus !== RIDE_LIVE_STATUS.STARTED &&
+    ride.otp
+  ) {
+    if (String(otp || '').trim() !== String(ride.otp).trim()) {
+      throw new ApiError(400, 'Incorrect ride OTP');
+    }
   }
 
   ride.liveStatus = nextStatus;

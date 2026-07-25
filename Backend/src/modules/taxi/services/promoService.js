@@ -354,33 +354,45 @@ export const applyPromoToRideInTransaction = async ({
 export const listAvailablePromosForUser = async ({
   userId,
   service_location_id,
-  transport_type = 'taxi',
+  transport_type,
   now = new Date(),
   limit = 50,
 }) => {
-  const serviceLocationId = toObjectIdOrThrow(service_location_id, 'service location id');
-  const transportType = normalizeTransportType(transport_type);
+  // service_location_id / transport_type are optional so a standalone "browse offers"
+  // screen can list every live promo. When a ride context is known (SelectVehicle)
+  // both are supplied and the list is narrowed to what actually applies.
+  const serviceLocationId = service_location_id ? toObjectIdOrThrow(service_location_id, 'service location id') : null;
+  const transportType = transport_type ? normalizeTransportType(transport_type) : '';
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 50));
 
   const query = {
     active: true,
     from_date: { $lte: now },
     to_date: { $gte: now },
-    transport_type: { $in: ['all', transportType] },
-    $and: [
-      {
-        $or: [
-          { service_location_id: serviceLocationId },
-          { service_location_ids: serviceLocationId },
-        ],
-      },
-    ],
+    $and: [],
   };
+
+  if (transportType) {
+    query.transport_type = { $in: ['all', transportType] };
+  }
+
+  if (serviceLocationId) {
+    query.$and.push({
+      $or: [
+        { service_location_id: serviceLocationId },
+        { service_location_ids: serviceLocationId },
+      ],
+    });
+  }
 
   if (userId) {
     query.$and.push({ $or: [{ user_specific: { $ne: true } }, { user_id: String(userId) }] });
   } else {
     query.user_specific = { $ne: true };
+  }
+
+  if (query.$and.length === 0) {
+    delete query.$and; // Mongo rejects an empty $and
   }
 
   const promos = await PromoCode.find(query).sort({ createdAt: -1 }).limit(safeLimit).lean();

@@ -1,16 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Tag, CheckCircle2, X, ChevronRight, Ticket } from 'lucide-react';
-// ... removed BottomNavbar import ...
+import { ArrowLeft, Tag, CheckCircle2, X, ChevronRight, Ticket, Copy } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { userService } from '../services/userService';
 import { useUserTheme } from '../../../shared/context/UserThemeContext';
 
-const MOCK_PROMOS = [
-  { id: '1', code: 'Appzeto 50', discount: 50, type: 'flat', service: 'All Rides', expiry: '30 Apr 2026', minFare: 100 },
-  { id: '2', code: 'GOFREE', discount: 100, type: 'flat', service: 'Cab Only', expiry: '15 Apr 2026', minFare: 150 },
-  { id: '3', code: 'SAVE20', discount: 20, type: 'percent', service: 'Parcel', expiry: '30 Apr 2026', minFare: 50 },
-  { id: '4', code: 'NEWUSER', discount: 75, type: 'flat', service: 'First Ride', expiry: '30 Apr 2026', minFare: 80 },
-];
+const unwrap = (response) => response?.data?.data || response?.data || response;
+
+const TRANSPORT_LABELS = {
+  all: 'All services',
+  taxi: 'Cab rides',
+  parcel: 'Parcel',
+  delivery: 'Delivery',
+  self_drive: 'Self drive',
+  rental: 'Rental',
+  pooling: 'Cab sharing',
+};
+
+const formatExpiry = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const toPromoCard = (promo) => {
+  const transportType = String(promo?.transport_type || 'all').toLowerCase();
+  const maxDiscount = Math.max(0, Number(promo?.maximum_discount_amount || 0));
+  const minFare = Math.max(0, Number(promo?.minimum_trip_amount || 0));
+
+  const conditions = [TRANSPORT_LABELS[transportType] || transportType];
+  if (minFare > 0) conditions.push(`Min fare ₹${minFare}`);
+  if (maxDiscount > 0) conditions.push(`Up to ₹${maxDiscount}`);
+
+  return {
+    id: String(promo?._id || promo?.code),
+    code: String(promo?.code || '').toUpperCase(),
+    discountPercentage: Math.max(0, Number(promo?.discount_percentage || 0)),
+    conditions: conditions.filter(Boolean).join(' · '),
+    expiry: formatExpiry(promo?.to_date),
+  };
+};
 
 const SkeletonCard = () => (
   <div className="animate-pulse rounded-[20px] bg-white/70 border border-white/80 p-4 space-y-3">
@@ -27,47 +57,56 @@ const PromoCodes = () => {
   const navigate = useNavigate();
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [appliedCode, setAppliedCode] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(null);
   const [manualCode, setManualCode] = useState('');
-  const [toast, setToast] = useState(null);
   const [errorBanner, setErrorBanner] = useState(null);
-  const [applying, setApplying] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
-      await new Promise(r => setTimeout(r, 700));
-      setPromos(MOCK_PROMOS);
-      setLoading(false);
+    let active = true;
+
+    const loadPromos = async () => {
+      try {
+        const payload = unwrap(await userService.getAvailablePromos({ limit: 20 }));
+        if (!active) return;
+        setPromos((Array.isArray(payload) ? payload : []).map(toPromoCard));
+        setErrorBanner(null);
+      } catch (err) {
+        if (!active) return;
+        setPromos([]);
+        setErrorBanner(err?.response?.data?.message || err?.message || 'Could not load offers right now');
+      } finally {
+        if (active) setLoading(false);
+      }
     };
-    load();
+
+    loadPromos();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const showToast = (msg, type = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2500);
-  };
-
-  const applyCode = async (code) => {
-    if (appliedCode === code) return; // idempotence guard
-    setApplying(code);
+  const copyCode = useCallback(async (code) => {
     try {
-      await new Promise(r => setTimeout(r, 600));
-      // POST /api/v1/request/promocode-redeem
-      if (code === 'INVALID') throw new Error('Promo code is expired or invalid');
-      setAppliedCode(code);
-      showToast(`"${code}" applied successfully!`, 'success');
-      setErrorBanner(null);
-    } catch (err) {
-      setErrorBanner(err.message || 'Failed to apply promo code');
-    } finally {
-      setApplying(null);
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      toast.success(`${code} copied — paste it at checkout`);
+    } catch {
+      toast.error(`Copy failed. Your code is ${code}`);
     }
-  };
+  }, []);
 
-  const handleManualApply = () => {
+  const availableCodes = useMemo(() => new Set(promos.map((promo) => promo.code)), [promos]);
+
+  const handleManualCheck = () => {
     const code = manualCode.trim().toUpperCase();
     if (!code) return;
-    applyCode(code);
+
+    if (availableCodes.has(code)) {
+      copyCode(code);
+    } else {
+      toast.error(`${code} is not among your available offers`);
+    }
     setManualCode('');
   };
 
@@ -107,21 +146,21 @@ const PromoCodes = () => {
           )}
         </AnimatePresence>
 
-        {/* Manual entry */}
+        {/* Manual lookup */}
         <div className={`rounded-[20px] border p-4 shadow-md transition-colors ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white/90 border-white/80 shadow-[0_4px_14px_rgba(15,23,42,0.06)]'}`}>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Enter Code Manually</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Have a code?</p>
           <div className="flex gap-2">
             <input
               type="text"
               value={manualCode}
               onChange={e => setManualCode(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleManualApply()}
-              placeholder="e.g. Appzeto 50"
+              onKeyDown={e => e.key === 'Enter' && handleManualCheck()}
+              placeholder="Enter a code to check"
               className={`flex-1 border rounded-[12px] px-4 py-2.5 text-[14px] font-black placeholder:text-slate-350 focus:outline-none focus:ring-2 ${isDark ? 'bg-slate-950 border-slate-800 text-white focus:ring-yellow-400/20' : 'bg-slate-50 border-slate-100 text-slate-900 focus:ring-orange-200'}`}
             />
-            <motion.button whileTap={{ scale: 0.96 }} onClick={handleManualApply}
+            <motion.button whileTap={{ scale: 0.96 }} onClick={handleManualCheck}
               className={`px-4 py-2.5 rounded-[12px] text-[12px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer ${isDark ? 'bg-yellow-400 text-slate-950 font-black' : 'bg-slate-900 text-white'}`}>
-              Apply <ChevronRight size={13} strokeWidth={3} />
+              Check <ChevronRight size={13} strokeWidth={3} />
             </motion.button>
           </div>
         </div>
@@ -129,7 +168,7 @@ const PromoCodes = () => {
         {/* Section label */}
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.26em] text-slate-400">Available Offers</p>
-          <h2 className={`mt-0.5 text-[16px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Pick a promo</h2>
+          <h2 className={`mt-0.5 text-[16px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Copy a code, use it at checkout</h2>
         </div>
 
         {/* Promo cards */}
@@ -145,13 +184,12 @@ const PromoCodes = () => {
         )}
 
         {!loading && promos.map((promo, i) => {
-          const isApplied = appliedCode === promo.code;
-          const isApplying = applying === promo.code;
+          const isCopied = copiedCode === promo.code;
           return (
             <motion.div key={promo.id}
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className={`rounded-[20px] border p-4 transition-all ${isApplied
+              className={`rounded-[20px] border p-4 transition-all ${isCopied
                   ? (isDark ? 'bg-emerald-950/20 border-emerald-900 shadow-sm' : 'bg-emerald-50/80 border-emerald-200 shadow-[0_4px_14px_rgba(16,185,129,0.10)]')
                   : (isDark ? 'bg-slate-900 border-slate-800 shadow-sm' : 'bg-white/90 border-white/80 shadow-[0_4px_14px_rgba(15,23,42,0.06)]')
                 }`}>
@@ -159,46 +197,34 @@ const PromoCodes = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className={`text-[16px] font-black tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>{promo.code}</span>
-                    {isApplied && <CheckCircle2 size={16} className="text-emerald-500" strokeWidth={2.5} />}
+                    {isCopied && <CheckCircle2 size={16} className="text-emerald-500" strokeWidth={2.5} />}
                   </div>
-                  <p className="text-[11px] font-bold text-slate-400 mt-0.5">{promo.service} · Min fare ₹{promo.minFare}</p>
+                  <p className="text-[11px] font-bold text-slate-400 mt-0.5">{promo.conditions}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className={`text-[18px] font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    {promo.type === 'flat' ? `₹${promo.discount}` : `${promo.discount}%`}
+                    {promo.discountPercentage}%
                     <span className="text-[11px] font-bold text-slate-400 ml-1">off</span>
                   </p>
-                  <p className="text-[9px] font-bold text-slate-400">Expires {promo.expiry}</p>
+                  {promo.expiry && <p className="text-[9px] font-bold text-slate-400">Expires {promo.expiry}</p>}
                 </div>
               </div>
               <motion.button whileTap={{ scale: 0.97 }}
-                onClick={() => applyCode(promo.code)}
-                disabled={isApplied || isApplying}
-                className={`w-full py-2.5 rounded-[12px] text-[12px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer ${isApplied
-                    ? (isDark ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30' : 'bg-emerald-100 text-emerald-700 cursor-default')
+                onClick={() => copyCode(promo.code)}
+                className={`w-full py-2.5 rounded-[12px] text-[12px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer ${isCopied
+                    ? (isDark ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30' : 'bg-emerald-100 text-emerald-700')
                     : (isDark ? 'bg-yellow-400 text-slate-950' : 'bg-slate-900 text-white shadow-sm active:bg-black')
                   }`}>
-                {isApplying ? (
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : isApplied ? (
-                  <><CheckCircle2 size={13} strokeWidth={2.5} /> Applied</>
-                ) : 'Apply Code'}
+                {isCopied ? (
+                  <><CheckCircle2 size={13} strokeWidth={2.5} /> Copied</>
+                ) : (
+                  <><Copy size={13} strokeWidth={2.5} /> Copy code</>
+                )}
               </motion.button>
             </motion.div>
           );
         })}
       </div>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-5 py-3 rounded-2xl text-[12px] font-black shadow-2xl z-50 whitespace-nowrap ${toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-              }`}>
-            {toast.type === 'success' ? '✓ ' : '✗ '}{toast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

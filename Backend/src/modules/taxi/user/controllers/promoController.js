@@ -1,4 +1,3 @@
-import { ApiError } from '../../../../utils/ApiError.js';
 import { listAvailablePromosForUser, validatePromoForContext } from '../../services/promoService.js';
 
 export const validatePromo = async (req, res) => {
@@ -16,14 +15,11 @@ export const validatePromo = async (req, res) => {
 };
 
 export const getAvailablePromos = async (req, res) => {
-  const serviceLocationId = req.query.service_location_id;
-  if (!serviceLocationId) {
-    throw new ApiError(400, 'service_location_id is required');
-  }
-
+  // Both filters are optional: the offers screen browses without a ride context,
+  // the ride flow passes them to narrow the list to what actually applies.
   const result = await listAvailablePromosForUser({
     userId: req.auth?.sub,
-    service_location_id: serviceLocationId,
+    service_location_id: req.query.service_location_id,
     transport_type: req.query.transport_type,
     limit: req.query.limit,
   });

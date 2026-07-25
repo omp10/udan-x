@@ -65,6 +65,18 @@ export const userService = {
     const response = await api.get('/users/service-stores');
     return response;
   },
+  getSavedAddresses: async () => {
+    const response = await api.get('/users/addresses');
+    return response;
+  },
+  saveAddress: async (payload) => {
+    const response = await api.put('/users/addresses', payload);
+    return response;
+  },
+  deleteSavedAddress: async (id) => {
+    const response = await api.delete(`/users/addresses/${id}`);
+    return response;
+  },
   getAvailablePromos: async (params) => {
     const response = await api.get('/promos/available', { params });
     return response;

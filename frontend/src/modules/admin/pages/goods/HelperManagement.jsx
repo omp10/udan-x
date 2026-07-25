@@ -309,7 +309,7 @@ const HelperManagement = () => {
   const loadHelpers = async () => {
     try {
       setLoading(true);
-      const res = await adminService.getHelpers?.().catch(() => ({ data: [] }));
+      const res = await adminService.getHelpers();
       const list = res?.data?.results || res?.data?.data || res?.data || [];
       setHelpers(Array.isArray(list) ? list : []);
     } catch {
@@ -348,7 +348,7 @@ const HelperManagement = () => {
   const handleDelete = async (h) => {
     if (!window.confirm(`Remove helper "${h.name}"?`)) return;
     try {
-      await adminService.deleteHelper?.(h.id || h._id);
+      await adminService.deleteHelper(h.id || h._id);
       toast.success('Helper removed');
       setHelpers((prev) => prev.filter((x) => (x.id || x._id) !== (h.id || h._id)));
     } catch {
@@ -359,7 +359,7 @@ const HelperManagement = () => {
   const handleToggle = async (h) => {
     try {
       const id = h.id || h._id;
-      await adminService.updateHelper?.(id, { available: !h.available });
+      await adminService.updateHelper(id, { available: !h.available });
       setHelpers((prev) =>
         prev.map((x) => ((x.id || x._id) === id ? { ...x, available: !x.available } : x)),
       );
@@ -379,10 +379,10 @@ const HelperManagement = () => {
         unloading_charge: Number(form.unloading_charge || 0),
       };
       if (editId) {
-        await adminService.updateHelper?.(editId, payload);
+        await adminService.updateHelper(editId, payload);
         toast.success('Helper updated');
       } else {
-        await adminService.createHelper?.(payload);
+        await adminService.createHelper(payload);
         toast.success('Helper added');
       }
       setShowModal(false);

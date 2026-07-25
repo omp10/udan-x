@@ -196,6 +196,72 @@ const buildSmsPayload = ({ phone, otp, appName, authMode = 'apiKey' }) => {
   return payload;
 };
 
+/**
+ * Sends an arbitrary transactional SMS (SOS alerts, etc.).
+ * ponytail: single attempt, no auth-mode fallback ladder like sendOtpSms — callers
+ * treat failure as non-fatal. Add the ladder if delivery rates say otherwise.
+ */
+export const sendTransactionalSms = async ({ phone, message, purpose = 'transactional' }) => {
+  const config = getSmsIndiaHubConfig();
+  const text = String(message || '').trim();
+
+  if (!text) {
+    throw new ApiError(400, 'SMS message text is required');
+  }
+
+  if (!config.senderId) {
+    throw new ApiError(500, 'SMS sender ID is not configured');
+  }
+
+  if (!config.apiKey && !(config.user && config.password)) {
+    throw new ApiError(500, 'SMS India Hub credentials are not configured');
+  }
+
+  const normalizedPhone = normalizeIndianPhone(phone);
+  if (!/^91\d{10}$/.test(normalizedPhone)) {
+    throw new ApiError(400, 'A valid Indian mobile number is required');
+  }
+
+  const payload = new URLSearchParams({
+    senderid: config.senderId,
+    channel: 'Trans',
+    DCS: '0',
+    flashsms: '0',
+    number: normalizedPhone,
+    text,
+  });
+
+  if (config.apiKey) {
+    payload.set('APIKey', config.apiKey);
+  } else {
+    payload.set('user', config.user);
+    payload.set('password', config.password);
+  }
+
+  const response = await fetch(SMS_INDIA_HUB_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json, text/plain;q=0.9, */*;q=0.8',
+    },
+    body: payload.toString(),
+  });
+  const responseText = (await response.text()).trim();
+
+  if (!isSuccessfulProviderResponse(response, responseText)) {
+    throw new ApiError(
+      502,
+      `SMS India Hub rejected ${purpose} request: ${responseText || response.statusText}`,
+    );
+  }
+
+  return {
+    mode: 'live',
+    providerResponse: responseText,
+    jobId: parseProviderResponse(responseText)?.JobId || null,
+  };
+};
+
 export const sendOtpSms = async ({ phone, otp, purpose = 'otp' }) => {
   if (isTruthy(env.sms.useDefaultOtp)) {
     return {

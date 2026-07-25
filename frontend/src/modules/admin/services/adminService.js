@@ -110,12 +110,39 @@ export const adminService = {
   getSubscriptionSettings: () => api.get('/admin/driver-subscriptions/settings'),
   updateSubscriptionSettings: (data) => api.post('/admin/driver-subscriptions/settings', data),
   getPartnerSubscriptionAnalytics: () => api.get('/admin/partner-subscriptions/analytics'),
+  updateSubscriptionPlan: (id, data) => api.patch(`/admin/subscriptions/plans/${id}`, data),
+  deleteSubscriptionPlan: (id) => api.delete(`/admin/subscriptions/plans/${id}`),
+  getExpiringSubscriptions: (params = {}) => api.get('/admin/partner-subscriptions/expiring', { params }),
+  getRecentSubscriptions: (params = {}) => api.get('/admin/partner-subscriptions/recent', { params }),
   getUserSubscriptionPlans: () => api.get('/admin/user-subscriptions/plans/list'),
   createUserSubscriptionPlan: (planData) => api.post('/admin/user-subscriptions/plans/create', planData),
   getUserSubscriptionsByUserId: (id) => api.get(`/admin/users/${id}/subscriptions`),
   getDriverSubscriptionsByDriverId: (id) => api.get(`/admin/drivers/${id}/subscriptions`),
   getOwnerSubscriptionsByOwnerId: (id) => api.get(`/admin/owners/${id}/subscriptions`),
   
+  /**
+   * Commission management
+   */
+  getCommissionSettings: () => api.get('/admin/commission/settings'),
+  updateCommissionSettings: (data) => api.patch('/admin/commission/settings', data),
+  getCommissionReport: (params = {}) => api.get('/admin/commission/report', { params }),
+  getDriverPayoutReport: (params = {}) => api.get('/admin/commission/payouts/drivers', { params }),
+  getFleetPayoutReport: (params = {}) => api.get('/admin/commission/payouts/fleet-owners', { params }),
+  downloadCommissionReport: (params = {}) =>
+    api.get('/admin/commission/report/download', { params, responseType: 'blob' }),
+
+  /**
+   * Goods logistics — warehouses & helpers (labour)
+   */
+  getWarehouses: (params = {}) => api.get('/admin/warehouses', { params }),
+  createWarehouse: (data) => api.post('/admin/warehouses', data),
+  updateWarehouse: (id, data) => api.patch(`/admin/warehouses/${id}`, data),
+  deleteWarehouse: (id) => api.delete(`/admin/warehouses/${id}`),
+  getHelpers: (params = {}) => api.get('/admin/helpers', { params }),
+  createHelper: (data) => api.post('/admin/helpers', data),
+  updateHelper: (id, data) => api.patch(`/admin/helpers/${id}`, data),
+  deleteHelper: (id) => api.delete(`/admin/helpers/${id}`),
+
   /**
    * Common / Configuration Data
    */

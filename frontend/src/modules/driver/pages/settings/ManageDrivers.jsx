@@ -13,8 +13,21 @@ import {
   Plus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getOwnerFleetDrivers } from "../../services/registrationService";
+import {
+  getOwnerFleetDrivers,
+  getOwnerFleetVehicles,
+  updateOwnerFleetDriver,
+} from "../../services/registrationService";
 import DriverBottomNav from "../../../shared/components/DriverBottomNav";
+
+const vehicleLabel = (vehicle = {}) =>
+  [
+    [vehicle.car_brand, vehicle.car_model].filter(Boolean).join(" ") ||
+      vehicle.vehicle_type_name,
+    vehicle.license_plate_number,
+  ]
+    .filter(Boolean)
+    .join(" • ") || "Vehicle";
 
 const ManageDrivers = () => {
   const navigate = useNavigate();
@@ -22,11 +35,33 @@ const ManageDrivers = () => {
     ? "/taxi/owner"
     : "/taxi/driver";
   const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [savingDriverId, setSavingDriverId] = useState("");
 
   const unwrap = (response) =>
     response?.data?.data || response?.data || response;
+
+  const mapDriver = (item) => ({
+    id: item.id || item._id,
+    name: item.name || "-",
+    phone: item.phone || "-",
+    email: item.email || "-",
+    address: item.city || "-",
+    salary: Number(item.salary || 0),
+    assignedVehicle: item.assignedVehicle || null,
+    assignedVehicleId: String(item.assignedVehicle?.vehicleId || ""),
+    // PATCH /fleet/drivers/:id rewrites zoneId from the payload, so the current
+    // zone has to be echoed back or the assignment would silently clear it.
+    zoneId: String(item.zone?.zoneId || ""),
+    status:
+      item.approve === true ||
+      item.approve === 1 ||
+      String(item.status || "").toLowerCase() === "approved"
+        ? "Active"
+        : "Pending",
+  });
 
   useEffect(() => {
     let active = true;
@@ -36,28 +71,18 @@ const ManageDrivers = () => {
       setError("");
 
       try {
-        const response = await getOwnerFleetDrivers();
-        const payload = unwrap(response);
-        const results = payload?.results || [];
+        const [driverResponse, vehicleResponse] = await Promise.all([
+          getOwnerFleetDrivers(),
+          getOwnerFleetVehicles().catch(() => null),
+        ]);
 
         if (!active) return;
 
-        setDrivers(
-          results.map((item) => ({
-            id: item.id || item._id,
-            name: item.name || "-",
-            phone: item.phone || "-",
-            email: item.email || "-",
-            address: item.city || "-",
-            salary: Number(item.salary || 0),
-            assignedVehicle: item.assignedVehicle || null,
-            status:
-              item.approve === true ||
-              item.approve === 1 ||
-              String(item.status || "").toLowerCase() === "approved"
-                ? "Active"
-                : "Pending",
-          })),
+        setDrivers((unwrap(driverResponse)?.results || []).map(mapDriver));
+        setVehicles(
+          (unwrap(vehicleResponse)?.results || []).filter(
+            (vehicle) => vehicle.active !== false,
+          ),
         );
       } catch (err) {
         if (!active) return;
@@ -74,6 +99,41 @@ const ManageDrivers = () => {
       active = false;
     };
   }, []);
+
+  // The backend owns the owner-scope and duplicate-assignment guards
+  // (PATCH /drivers/fleet/drivers/:driverId), so a rejected change is surfaced
+  // as-is rather than pre-validated here.
+  const assignVehicle = async (driver, vehicleId) => {
+    setSavingDriverId(driver.id);
+    setError("");
+
+    try {
+      const response = await updateOwnerFleetDriver(driver.id, {
+        name: driver.name,
+        phone: driver.phone,
+        email: driver.email === "-" ? "" : driver.email,
+        salary: driver.salary,
+        city: driver.address === "-" ? "" : driver.address,
+        zoneId: driver.zoneId,
+        assignedFleetVehicleId: vehicleId,
+      });
+      const updated = unwrap(response);
+
+      setDrivers((current) =>
+        current.map((item) =>
+          item.id === driver.id && updated?.id ? mapDriver(updated) : item,
+        ),
+      );
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Could not update vehicle assignment",
+      );
+    } finally {
+      setSavingDriverId("");
+    }
+  };
 
   const deleteDriver = (id) => {
     setDrivers((d) => d.filter((item) => item.id !== id));
@@ -213,13 +273,46 @@ const ManageDrivers = () => {
                           Monthly Salary Rs {Number(d.salary || 0).toLocaleString("en-IN")}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-slate-400 col-span-2">
-                        <Briefcase size={12} strokeWidth={2.5} />
-                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
-                          {d.assignedVehicle?.number
-                            ? `${d.assignedVehicle.name || "Assigned Vehicle"} ${d.assignedVehicle.number}`
-                            : "No vehicle assigned"}
-                        </span>
+                      <div className="col-span-2 space-y-2">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Briefcase size={12} strokeWidth={2.5} />
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
+                            {d.assignedVehicle?.number
+                              ? `${d.assignedVehicle.name || "Assigned Vehicle"} ${d.assignedVehicle.number}`
+                              : "No vehicle assigned"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={d.assignedVehicleId}
+                            disabled={savingDriverId === d.id}
+                            onChange={(event) => assignVehicle(d, event.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-slate-400 disabled:opacity-60">
+                            <option value="">Unassigned</option>
+                            {vehicles.map((vehicle) => {
+                              const id = String(vehicle.id || vehicle._id);
+                              return (
+                                <option key={id} value={id}>
+                                  {vehicleLabel(vehicle)}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {d.assignedVehicleId ? (
+                            <button
+                              type="button"
+                              disabled={savingDriverId === d.id}
+                              onClick={() => assignVehicle(d, "")}
+                              className="shrink-0 rounded-xl bg-slate-50 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-rose-500 disabled:opacity-60">
+                              Unassign
+                            </button>
+                          ) : null}
+                        </div>
+                        {savingDriverId === d.id ? (
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                            Saving assignment...
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2 text-slate-400 col-span-2">
                         <MapPin size={12} strokeWidth={2.5} />

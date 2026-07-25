@@ -188,6 +188,8 @@ export const serializePartnerSubscription = (item = {}) => {
   };
 };
 
+export const getPartnerSubscriptionMode = async () => getPartnerConfigMode();
+
 const getPartnerConfigMode = async () => {
   const setting = await AdminBusinessSetting.findOne({ scope: 'default' }).lean();
   return String(setting?.subscription?.mode || 'commissionOnly').trim();
@@ -263,6 +265,49 @@ const applyWalletPurchaseForAudience = async ({ audience, entity, amount, title,
   };
 };
 
+// Returns the live subscription benefits for a driver/owner, or null.
+// Every benefit field used to be a stored flag nothing read; this is the single
+// lookup that lets dispatch, commission and booking limits honour them.
+export const resolveActivePartnerBenefits = async ({ audience = 'driver', entityId, session = null } = {}) => {
+  if (!entityId || !mongoose.Types.ObjectId.isValid(entityId)) {
+    return null;
+  }
+
+  const normalizedAudience = normalizeAudience(audience);
+  const query = PartnerSubscription.findOne({
+    audience: normalizedAudience,
+    ...(normalizedAudience === 'owner' ? { ownerId: entityId } : { driverId: entityId }),
+    status: 'active',
+    active: true,
+    expiresAt: { $gt: new Date() },
+  }).sort({ expiresAt: -1 });
+
+  if (session) {
+    query.session(session);
+  }
+
+  const subscription = await query.lean();
+
+  if (!subscription) {
+    return null;
+  }
+
+  return {
+    subscriptionId: subscription._id,
+    planId: subscription.planId || null,
+    name: subscription.name || '',
+    commissionDiscountPercent: Math.min(100, Math.max(0, Number(subscription.commission_discount_percent || 0))),
+    priorityBooking: subscription.priority_booking === true,
+    featuredListing: subscription.featured_listing === true,
+    premiumSupport: subscription.premium_support === true,
+    // 0 means unlimited
+    bookingLimit: Math.max(0, Number(subscription.booking_limit || 0)),
+    maxVehiclesCovered: Math.max(0, Number(subscription.max_vehicles_covered || 0)),
+    coverageScope: subscription.coverage_scope || 'individual',
+    expiresAt: subscription.expiresAt || null,
+  };
+};
+
 export const listPartnerSubscriptionPlans = async ({ audience = 'driver', activeOnly = false } = {}) => {
   const normalizedAudience = normalizeAudience(audience);
   const query = {
@@ -289,6 +334,141 @@ export const createPartnerSubscriptionPlan = async (payload = {}) => {
 
   const plan = await SubscriptionPlan.create(nextPayload);
   return serializePartnerPlan(plan.toObject());
+};
+
+// No update/delete route existed for any plan, so the admin Subscription Plans
+// page threw "is not a function" on edit, delete and activate.
+export const updatePartnerSubscriptionPlan = async (id, payload = {}) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, 'Valid subscription plan id is required');
+  }
+
+  const plan = await SubscriptionPlan.findById(id);
+
+  if (!plan) {
+    throw new ApiError(404, 'Subscription plan not found');
+  }
+
+  const nextPayload = normalizePlanPayload(
+    { ...plan.toObject(), ...payload },
+    normalizeAudience(plan.audience),
+  );
+
+  if (!nextPayload.name) {
+    throw new ApiError(400, 'Subscription name is required');
+  }
+
+  Object.assign(plan, nextPayload);
+  await plan.save();
+
+  return serializePartnerPlan(plan.toObject());
+};
+
+// Plans with live subscriptions are deactivated rather than removed, so existing
+// subscribers keep working and historical reports stay intact.
+export const deletePartnerSubscriptionPlan = async (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, 'Valid subscription plan id is required');
+  }
+
+  const plan = await SubscriptionPlan.findById(id);
+
+  if (!plan) {
+    throw new ApiError(404, 'Subscription plan not found');
+  }
+
+  const liveCount = await PartnerSubscription.countDocuments({
+    planId: plan._id,
+    status: 'active',
+    expiresAt: { $gt: new Date() },
+  });
+
+  if (liveCount > 0) {
+    plan.active = false;
+    await plan.save();
+    return { deleted: false, deactivated: true, activeSubscribers: liveCount };
+  }
+
+  await SubscriptionPlan.findByIdAndDelete(plan._id);
+  return { deleted: true, deactivated: false, activeSubscribers: 0 };
+};
+
+// Powers the "Expiring Within 7 Days" panel, which was permanently empty because
+// getExpiringSubscriptions did not exist.
+export const listExpiringPartnerSubscriptions = async ({ days = 7 } = {}) => {
+  const now = new Date();
+  const until = addDays(now, days);
+
+  const items = await PartnerSubscription.find({
+    status: 'active',
+    active: true,
+    expiresAt: { $gte: now, $lte: until },
+  })
+    .sort({ expiresAt: 1 })
+    .limit(100)
+    .populate('driverId', 'name phone')
+    .populate('ownerId', 'owner_name company_name mobile')
+    .lean();
+
+  return {
+    results: items.map((item) => ({
+      id: String(item._id),
+      audience: item.audience,
+      name: item.name || '',
+      amount: toMoney(item.amount, 0),
+      expiresAt: item.expiresAt,
+      autoRenew: item.autoRenew === true,
+      subscriber:
+        item.audience === 'owner'
+          ? {
+              id: item.ownerId?._id ? String(item.ownerId._id) : null,
+              name: item.ownerId?.company_name || item.ownerId?.owner_name || 'Unknown',
+              phone: item.ownerId?.mobile || '',
+            }
+          : {
+              id: item.driverId?._id ? String(item.driverId._id) : null,
+              name: item.driverId?.name || 'Unknown',
+              phone: item.driverId?.phone || '',
+            },
+    })),
+    total: items.length,
+  };
+};
+
+// Powers the "Recent Subscriptions" panel (getRecentSubscriptions was absent).
+export const listRecentPartnerSubscriptions = async ({ limit = 20 } = {}) => {
+  const items = await PartnerSubscription.find({})
+    .sort({ createdAt: -1 })
+    .limit(Math.min(100, Math.max(1, Number(limit) || 20)))
+    .populate('driverId', 'name phone')
+    .populate('ownerId', 'owner_name company_name mobile')
+    .lean();
+
+  return {
+    results: items.map((item) => ({
+      id: String(item._id),
+      audience: item.audience,
+      name: item.name || '',
+      amount: toMoney(item.amount, 0),
+      status: item.status || 'unknown',
+      startedAt: item.startedAt || item.createdAt,
+      expiresAt: item.expiresAt,
+      purchaseSource: item.purchaseSource || 'wallet',
+      subscriber:
+        item.audience === 'owner'
+          ? {
+              id: item.ownerId?._id ? String(item.ownerId._id) : null,
+              name: item.ownerId?.company_name || item.ownerId?.owner_name || 'Unknown',
+              phone: item.ownerId?.mobile || '',
+            }
+          : {
+              id: item.driverId?._id ? String(item.driverId._id) : null,
+              name: item.driverId?.name || 'Unknown',
+              phone: item.driverId?.phone || '',
+            },
+    })),
+    total: items.length,
+  };
 };
 
 export const listPartnerSubscriptionsForEntity = async ({ audience = 'driver', entityId }) => {

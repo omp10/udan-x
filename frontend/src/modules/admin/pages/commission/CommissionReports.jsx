@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminService } from '../../services/adminService';
+import { triggerFileDownload } from '../../../../shared/utils/downloadHelper';
 
 const TABS = [
   { id: 'daily', label: 'Daily' },
@@ -74,9 +75,9 @@ const CommissionReports = () => {
     try {
       setLoading(true);
       const [reportRes, driverRes, fleetRes] = await Promise.all([
-        adminService.getCommissionReport?.({ period }).catch(() => null),
-        adminService.getDriverPayoutReport?.({ period }).catch(() => null),
-        adminService.getFleetPayoutReport?.({ period }).catch(() => null),
+        adminService.getCommissionReport({ period }),
+        adminService.getDriverPayoutReport({ period }),
+        adminService.getFleetPayoutReport({ period }),
       ]);
 
       setData(
@@ -108,8 +109,13 @@ const CommissionReports = () => {
     loadData();
   }, [period]);
 
-  const handleExport = () => {
-    toast('CSV export initiated', { icon: '📥' });
+  const handleExport = async () => {
+    try {
+      const response = await adminService.downloadCommissionReport({ period, file_format: 'csv' });
+      triggerFileDownload(response, `commission_${period}_${Date.now()}`, 'csv');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to export commission report');
+    }
   };
 
   return (

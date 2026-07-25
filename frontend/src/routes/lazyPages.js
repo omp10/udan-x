@@ -68,7 +68,6 @@ export const RentalKYC = lazy(() => import('../modules/user/pages/rental/RentalK
 export const RentalDeposit = lazy(() => import('../modules/user/pages/rental/RentalDeposit'));
 export const RentalConfirmed = lazy(() => import('../modules/user/pages/rental/RentalConfirmed'));
 export const IntercityHome = lazy(() => import('../modules/user/pages/intercity/IntercityHome'));
-export const CabSharing = lazy(() => import('../modules/user/pages/cabsharing/CabSharing'));
 export const UserPoolingHome = lazy(() => import('../modules/user/pages/pooling/PoolingHome'));
 export const UserPoolingList = lazy(() => import('../modules/user/pages/pooling/PoolingList'));
 export const UserPoolingSeats = lazy(() => import('../modules/user/pages/pooling/PoolingSeats'));
@@ -123,6 +122,7 @@ export const DriverHelpSupportOptions = lazy(() => import('../modules/driver/pag
 export const DriverSupportChat = lazy(() => import('../modules/driver/pages/settings/SupportChat'));
 export const VehicleFleet = lazy(() => import('../modules/driver/pages/settings/VehicleFleet'));
 export const OwnerVehicleFleet = lazy(() => import('../modules/driver/pages/settings/OwnerVehicleFleet'));
+export const OwnerReports = lazy(() => import('../modules/driver/pages/OwnerReports'));
 export const AddVehicle = lazy(() => import('../modules/driver/pages/settings/AddVehicle'));
 export const ManageDrivers = lazy(() => import('../modules/driver/pages/settings/ManageDrivers'));
 export const AddDriver = lazy(() => import('../modules/driver/pages/settings/AddDriver'));
@@ -274,4 +274,7 @@ export const AdminSubscriptionAnalytics = lazy(() => import('../modules/admin/pa
 export const AdminHelperManagement = lazy(() => import('../modules/admin/pages/goods/HelperManagement'));
 export const AdminWarehouseManagement = lazy(() => import('../modules/admin/pages/goods/WarehouseManagement'));
 export const AdminGoodsSettings = lazy(() => import('../modules/admin/pages/goods/GoodsSettings'));
-export const AdminAppBranding = lazy(() => import('../modules/admin/pages/settings/AppBranding'));
+// AppBranding removed: it called four adminService methods that never existed and
+// always toasted "saved successfully" while persisting nothing. Branding + logo +
+// favicon are handled for real by AdminGeneralSettings, which the
+// `settings/business/*` wildcard route now serves for this path.

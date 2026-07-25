@@ -1,5 +1,8 @@
 import { asyncHandler } from "../../../../utils/asyncHandler.js";
 import * as adminService from "../services/adminService.js";
+import * as goodsLogisticsService from "../services/goodsLogisticsService.js";
+import * as commissionService from "../services/commissionService.js";
+import * as partnerSubscriptionService from "../../services/partnerSubscriptionService.js";
 import ExcelJS from 'exceljs';
 import { BusBooking } from '../../user/models/BusBooking.js';
 import { BusService } from '../models/BusService.js';
@@ -596,6 +599,22 @@ export const updateSubscriptionSettings = asyncHandler(async (req, res) =>
 );
 export const getPartnerSubscriptionsAnalytics = asyncHandler(async (_req, res) =>
   ok(res, await adminService.getPartnerSubscriptionsAnalytics()),
+);
+export const updateSubscriptionPlan = asyncHandler(async (req, res) =>
+  ok(res, await partnerSubscriptionService.updatePartnerSubscriptionPlan(req.params.id, req.body)),
+);
+export const deleteSubscriptionPlan = asyncHandler(async (req, res) =>
+  ok(res, await partnerSubscriptionService.deletePartnerSubscriptionPlan(req.params.id)),
+);
+export const getExpiringSubscriptions = asyncHandler(async (req, res) =>
+  ok(res, await partnerSubscriptionService.listExpiringPartnerSubscriptions({
+    days: Number(req.query.days) || 7,
+  })),
+);
+export const getRecentSubscriptions = asyncHandler(async (req, res) =>
+  ok(res, await partnerSubscriptionService.listRecentPartnerSubscriptions({
+    limit: Number(req.query.limit) || 20,
+  })),
 );
 
 export const getReferralSettings = asyncHandler(async (req, res) =>
@@ -1359,6 +1378,75 @@ export const getRentalTrackingDashboard = asyncHandler(async (_req, res) =>
 );
 export const updateRentalBookingRequest = asyncHandler(async (req, res) =>
   ok(res, await adminService.updateRentalBookingRequest(req.params.id, req.body, req.auth?.sub)),
+);
+
+export const getCommissionSettings = asyncHandler(async (_req, res) =>
+  ok(res, await commissionService.getCommissionSettings()),
+);
+export const updateCommissionSettings = asyncHandler(async (req, res) =>
+  ok(res, await commissionService.updateCommissionSettings(req.body)),
+);
+export const getCommissionReport = asyncHandler(async (req, res) =>
+  ok(res, await commissionService.getCommissionReport(req.query)),
+);
+export const getDriverPayoutReport = asyncHandler(async (req, res) =>
+  ok(res, await commissionService.getDriverPayoutReport(req.query)),
+);
+export const getFleetPayoutReport = asyncHandler(async (req, res) =>
+  ok(res, await commissionService.getFleetPayoutReport(req.query)),
+);
+export const downloadCommissionReport = asyncHandler(async (req, res) => {
+  const rows = await commissionService.buildCommissionExportRows(req.query);
+  const headers = ['vehicle_type', 'trips', 'gross_fare', 'commission_collected'];
+  await sendFile(
+    res,
+    `commission-report-${req.query.period || 'weekly'}`,
+    { headers, rows },
+    String(req.query.file_format || 'csv').toLowerCase() === 'xlsx' ? 'xlsx' : 'csv',
+  );
+});
+
+export const getWarehouses = asyncHandler(async (req, res) =>
+  res.json(
+    await goodsLogisticsService.listWarehouses({
+      activeOnly: String(req.query.active_only || '') === '1',
+      role: String(req.query.role || '').trim().toLowerCase(),
+    }),
+  ),
+);
+export const createWarehouse = asyncHandler(async (req, res) =>
+  ok(res, await goodsLogisticsService.createWarehouse(req.body)),
+);
+export const updateWarehouse = asyncHandler(async (req, res) =>
+  ok(res, await goodsLogisticsService.updateWarehouse(req.params.id, req.body)),
+);
+export const deleteWarehouse = asyncHandler(async (req, res) =>
+  ok(res, await goodsLogisticsService.deleteWarehouse(req.params.id)),
+);
+
+export const getHelpers = asyncHandler(async (req, res) =>
+  res.json(
+    await goodsLogisticsService.listHelpers({
+      availableOnly: String(req.query.available_only || '') === '1',
+    }),
+  ),
+);
+export const createHelper = asyncHandler(async (req, res) =>
+  ok(res, await goodsLogisticsService.createHelper(req.body)),
+);
+export const updateHelper = asyncHandler(async (req, res) =>
+  ok(res, await goodsLogisticsService.updateHelper(req.params.id, req.body)),
+);
+export const deleteHelper = asyncHandler(async (req, res) =>
+  ok(res, await goodsLogisticsService.deleteHelper(req.params.id)),
+);
+
+// Public reads for the customer booking flow. Only active/available rows.
+export const getPublicWarehouses = asyncHandler(async (_req, res) =>
+  res.json(await goodsLogisticsService.listWarehouses({ activeOnly: true })),
+);
+export const getPublicHelpers = asyncHandler(async (_req, res) =>
+  res.json(await goodsLogisticsService.listHelpers({ availableOnly: true })),
 );
 
 export const getGoodsTypes = asyncHandler(async (_req, res) =>

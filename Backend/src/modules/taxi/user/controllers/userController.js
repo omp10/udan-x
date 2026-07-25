@@ -21,6 +21,12 @@ import {
   verifyUserOtp,
 } from '../services/userOtpService.js';
 import { assignPushTokenToEntity } from '../../services/pushTokenService.js';
+import {
+  MAX_EMERGENCY_CONTACTS,
+  sanitizeEmergencyPhone,
+  serializeEmergencyContact,
+  validateEmergencyContact,
+} from '../../common/utils/emergencyContacts.js';
 import { BusSeatHold } from '../models/BusSeatHold.js';
 import { BusBooking } from '../models/BusBooking.js';
 import { RentalBookingRequest } from '../../admin/models/RentalBookingRequest.js';
@@ -1906,6 +1912,110 @@ export const saveUserFcmToken = async (req, res) => {
       platform: saved.platform,
       field: saved.fieldName,
     },
+  });
+};
+
+const loadUserForEmergencyContacts = async (authId) => {
+  const user = await User.findById(authId);
+
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  if (!Array.isArray(user.emergencyContacts)) {
+    user.emergencyContacts = [];
+  }
+
+  return user;
+};
+
+const emergencyContactsResponse = (user) => ({
+  results: user.emergencyContacts.map(serializeEmergencyContact),
+  limit: MAX_EMERGENCY_CONTACTS,
+});
+
+export const getUserEmergencyContacts = async (req, res) => {
+  const user = await loadUserForEmergencyContacts(req.auth?.sub);
+
+  res.json({ success: true, data: emergencyContactsResponse(user) });
+};
+
+export const addUserEmergencyContact = async (req, res) => {
+  const { contact, error } = validateEmergencyContact(req.body);
+
+  if (error) {
+    throw new ApiError(400, error);
+  }
+
+  const user = await loadUserForEmergencyContacts(req.auth?.sub);
+
+  if (user.emergencyContacts.length >= MAX_EMERGENCY_CONTACTS) {
+    throw new ApiError(400, `You can add up to ${MAX_EMERGENCY_CONTACTS} emergency contacts`);
+  }
+
+  if (user.emergencyContacts.some((existing) => sanitizeEmergencyPhone(existing.phone) === contact.phone)) {
+    throw new ApiError(409, 'This contact number is already added');
+  }
+
+  user.emergencyContacts.push(contact);
+  await user.save();
+
+  res.status(201).json({
+    success: true,
+    data: serializeEmergencyContact(user.emergencyContacts[user.emergencyContacts.length - 1]),
+  });
+};
+
+export const updateUserEmergencyContact = async (req, res) => {
+  const { contact, error } = validateEmergencyContact(req.body);
+
+  if (error) {
+    throw new ApiError(400, error);
+  }
+
+  const user = await loadUserForEmergencyContacts(req.auth?.sub);
+  const target = user.emergencyContacts.find(
+    (existing) => String(existing._id) === String(req.params.contactId),
+  );
+
+  if (!target) {
+    throw new ApiError(404, 'Emergency contact not found');
+  }
+
+  const isDuplicate = user.emergencyContacts.some(
+    (existing) =>
+      String(existing._id) !== String(target._id)
+      && sanitizeEmergencyPhone(existing.phone) === contact.phone,
+  );
+
+  if (isDuplicate) {
+    throw new ApiError(409, 'This contact number is already added');
+  }
+
+  target.name = contact.name;
+  target.phone = contact.phone;
+  target.source = contact.source;
+  await user.save();
+
+  res.json({ success: true, data: serializeEmergencyContact(target) });
+};
+
+export const deleteUserEmergencyContact = async (req, res) => {
+  const user = await loadUserForEmergencyContacts(req.auth?.sub);
+  const remaining = user.emergencyContacts.filter(
+    (contact) => String(contact._id) !== String(req.params.contactId),
+  );
+
+  if (remaining.length === user.emergencyContacts.length) {
+    throw new ApiError(404, 'Emergency contact not found');
+  }
+
+  user.emergencyContacts = remaining;
+  await user.save();
+
+  res.json({
+    success: true,
+    data: { deleted: true, ...emergencyContactsResponse(user) },
   });
 };
 

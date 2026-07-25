@@ -680,10 +680,12 @@ const SearchingDriver = () => {
           userMaxBidFare: routeState.userMaxBidFare || routeState.fare || routeState.vehicle?.price || 22,
           bidStepAmount: routeState.bidStepAmount || 10,
           scheduledAt: routeState.scheduledAt || null,
+          // The UI collected these and priced the route through them, but they were
+          // dropped here, so the driver never saw the stops the rider paid for.
+          stops: Array.isArray(routeState.stops)
+            ? routeState.stops.filter((stop) => String(stop || '').trim().length > 0)
+            : [],
         };
-
-        console.log('--- TEMPORARY DEBUG LOG ---');
-        console.log('booking payload vehicleType:', selectedVehicleTypeId);
 
         const response = await api.post('/rides', requestPayload, rideRequestConfig);
 

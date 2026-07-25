@@ -66,9 +66,9 @@ const SubscriptionAnalytics = () => {
     try {
       setLoading(true);
       const [analyticsRes, expiringRes, recentRes] = await Promise.all([
-        adminService.getPartnerSubscriptionAnalytics?.().catch(() => null),
-        adminService.getExpiringSubscriptions?.().catch(() => null),
-        adminService.getRecentSubscriptions?.().catch(() => null),
+        adminService.getPartnerSubscriptionAnalytics(),
+        adminService.getExpiringSubscriptions(),
+        adminService.getRecentSubscriptions(),
       ]);
 
       setAnalytics(analyticsRes?.data || null);

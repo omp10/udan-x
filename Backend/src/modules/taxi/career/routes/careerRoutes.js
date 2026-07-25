@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../../../utils/asyncHandler.js';
 import { authenticate } from '../../middlewares/authMiddleware.js';
+import { uploadRateLimit } from '../../middlewares/rateLimitMiddleware.js';
 import {
   listActiveJobs,
   submitApplication,
@@ -19,7 +20,7 @@ export const careerRouter = Router();
 // Public routes
 careerRouter.get('/careers/jobs', asyncHandler(listActiveJobs));
 careerRouter.post('/careers/applications', asyncHandler(submitApplication));
-careerRouter.post('/careers/upload', asyncHandler(uploadApplicationFile));
+careerRouter.post('/careers/upload', uploadRateLimit, asyncHandler(uploadApplicationFile));
 
 // Admin routes (requires admin authentication)
 careerRouter.get('/admin/careers/jobs', authenticate(['admin']), asyncHandler(adminListJobs));

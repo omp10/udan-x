@@ -1,5 +1,15 @@
 import { Router } from "express";
 import { asyncHandler } from "../../../../utils/asyncHandler.js";
+import {
+  cancelOwnerPayoutRequest,
+  createOwnerPayoutRequest,
+  exportOwnerReport,
+  getOwnerEarningsReport,
+  getOwnerFleetCompliance,
+  getOwnerShipmentReport,
+  listOwnerPayoutRequests,
+  updateOwnerVehicleCompliance,
+} from "../controllers/ownerReportsController.js";
 import { authenticate } from "../../middlewares/authMiddleware.js";
 import {
   loginRateLimit,
@@ -377,7 +387,7 @@ driverRouter.post(
   );
 driverRouter.post(
   "/wallet/withdrawals",
-  authenticate(["driver"]),
+  authenticate(["driver", "owner"]),
   asyncHandler(createDriverWithdrawalRequest),
 );
 
@@ -441,6 +451,46 @@ driverRouter.get(
   "/fleet/drivers",
   authenticate(["driver", "owner"]),
   asyncHandler(getOwnerFleetDrivers),
+);
+driverRouter.get(
+  "/fleet/earnings",
+  authenticate(["owner"]),
+  asyncHandler(getOwnerEarningsReport),
+);
+driverRouter.get(
+  "/fleet/shipments",
+  authenticate(["owner"]),
+  asyncHandler(getOwnerShipmentReport),
+);
+driverRouter.get(
+  "/fleet/reports/export",
+  authenticate(["owner"]),
+  asyncHandler(exportOwnerReport),
+);
+driverRouter.get(
+  "/fleet/payouts",
+  authenticate(["owner"]),
+  asyncHandler(listOwnerPayoutRequests),
+);
+driverRouter.post(
+  "/fleet/payouts",
+  authenticate(["owner"]),
+  asyncHandler(createOwnerPayoutRequest),
+);
+driverRouter.post(
+  "/fleet/payouts/:requestId/cancel",
+  authenticate(["owner"]),
+  asyncHandler(cancelOwnerPayoutRequest),
+);
+driverRouter.get(
+  "/fleet/compliance",
+  authenticate(["owner"]),
+  asyncHandler(getOwnerFleetCompliance),
+);
+driverRouter.patch(
+  "/fleet/vehicles/:vehicleId/compliance",
+  authenticate(["owner"]),
+  asyncHandler(updateOwnerVehicleCompliance),
 );
 driverRouter.get(
   "/fleet/zones",

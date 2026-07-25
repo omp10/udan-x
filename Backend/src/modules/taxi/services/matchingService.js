@@ -3,6 +3,7 @@ import { normalizePoint } from '../../../utils/geo.js';
 import { DISPATCH_TOP_DRIVERS } from '../constants/index.js';
 import { Vehicle } from '../admin/models/Vehicle.js';
 import { Driver } from '../driver/models/Driver.js';
+import { PartnerSubscription } from '../driver/models/PartnerSubscription.js';
 import { Zone } from '../driver/models/Zone.js';
 import { getDriverIdsBlockedByUpcomingScheduledRides } from './rideService.js';
 
@@ -329,6 +330,45 @@ const findDriversForZone = async ({
   ).slice(0, limit);
 };
 
+// Subscription benefit: priority booking allocation. `priority_booking` was a
+// stored flag with zero consumers — dispatch never referenced subscriptions at
+// all. Drivers on a priority plan are moved to the front of the candidate list
+// while the existing distance ordering is preserved within each group, so a
+// priority driver still has to be nearby to be offered the ride.
+const applyPriorityBookingOrder = async (drivers = []) => {
+  if (drivers.length < 2) {
+    return drivers;
+  }
+
+  const driverIds = drivers.map((driver) => driver?._id).filter(Boolean);
+
+  if (!driverIds.length) {
+    return drivers;
+  }
+
+  const prioritySubscriptions = await PartnerSubscription.find({
+    audience: 'driver',
+    driverId: { $in: driverIds },
+    status: 'active',
+    active: true,
+    priority_booking: true,
+    expiresAt: { $gt: new Date() },
+  })
+    .select('driverId')
+    .lean();
+
+  if (!prioritySubscriptions.length) {
+    return drivers;
+  }
+
+  const priorityDriverIds = new Set(prioritySubscriptions.map((item) => String(item.driverId)));
+
+  return [
+    ...drivers.filter((driver) => priorityDriverIds.has(String(driver?._id))),
+    ...drivers.filter((driver) => !priorityDriverIds.has(String(driver?._id))),
+  ];
+};
+
 export const matchDrivers = async (pickupCoords, options = {}) => {
   const coordinates = normalizePoint(pickupCoords, 'pickupCoords');
   const {
@@ -397,6 +437,8 @@ export const matchDrivers = async (pickupCoords, options = {}) => {
     );
     drivers = drivers.filter((driver) => !fallbackBlockedDriverIds.has(String(driver?._id || '')));
   }
+
+  drivers = await applyPriorityBookingOrder(drivers);
 
   return {
     zone,

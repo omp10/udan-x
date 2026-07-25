@@ -290,3 +290,14 @@ export const availableDriversRateLimit = createRateLimitMiddleware({
   mode: 'ip',
   message: 'Too many driver availability requests. Please try again later.',
 });
+
+// The image/file upload endpoints relay straight to Cloudinary and must stay
+// reachable anonymously (signup photo, career applications), so they cannot be
+// auth-gated. Cap them per caller instead so they are not an open upload relay.
+export const uploadRateLimit = createRateLimitMiddleware({
+  scope: 'upload',
+  max: 20,
+  windowMs: 10 * 60 * 1000,
+  mode: 'auth_or_ip',
+  message: 'Too many uploads. Please try again later.',
+});

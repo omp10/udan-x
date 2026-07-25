@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Trash2, Phone, User, AlertTriangle, ShieldAlert, X, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { triggerUserSosAlert } from '../../../../shared/services/safetyAlertService';
+import { userAuthService } from '../../services/authService';
 
 const MAX_CONTACTS = 5;
 const PHONE_REGEX = /^[6-9]\d{9}$/;
+// Mirrors the server-side rule so the user is not bounced by a 400.
+const NAME_REGEX = /^[A-Za-z]+(?:[ .'-][A-Za-z]+)*$/;
 
-const MOCK_CONTACTS = [
-  { id: '1', name: 'Rahul Verma',  phone: '9876543210' },
-  { id: '2', name: 'Priya Sharma', phone: '9123456789' },
-];
+const readErrorMessage = (error, fallback) =>
+  error?.response?.data?.message || error?.message || fallback;
 
 const EMERGENCY_SERVICES = [
   { id: 'police', label: 'Police', phone: '100', accent: 'bg-blue-50 border-blue-100 text-blue-600' },
@@ -21,40 +22,85 @@ const EMERGENCY_SERVICES = [
 
 const SOSContacts = () => {
   const navigate = useNavigate();
-  const [contacts, setContacts]         = useState(MOCK_CONTACTS);
+  const [contacts, setContacts]         = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [loadError, setLoadError]       = useState('');
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [name, setName]                 = useState('');
   const [phone, setPhone]               = useState('');
   const [errors, setErrors]             = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting]         = useState(false);
   const [sosActive, setSosActive]       = useState(false);
   const [countdown, setCountdown]       = useState(3);
   const [saving, setSaving]             = useState(false);
   const [isTriggeringSos, setIsTriggeringSos] = useState(false);
 
+  const loadContacts = async () => {
+    setLoading(true);
+    try {
+      const response = await userAuthService.getEmergencyContacts();
+      const results = response?.data?.data?.results;
+      setContacts(Array.isArray(results) ? results : []);
+      setLoadError('');
+    } catch (error) {
+      const message = readErrorMessage(error, 'Could not load your SOS contacts');
+      setLoadError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // One-shot fetch on mount. set-state-in-effect fires for any load-into-state
+  // fetch; there is no external store to subscribe to here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadContacts(); }, []);
+
   const validate = () => {
     const e = {};
-    if (!name.trim())              e.name  = 'Name is required';
-    if (!PHONE_REGEX.test(phone))  e.phone = 'Enter a valid 10-digit mobile number';
+    const trimmedName = name.trim();
+    if (!trimmedName)                   e.name  = 'Name is required';
+    else if (!NAME_REGEX.test(trimmedName)) e.name = 'Name can contain alphabets only';
+    if (!PHONE_REGEX.test(phone))       e.phone = 'Enter a valid 10-digit mobile number';
     if (contacts.some(c => c.phone === phone)) e.phone = 'This number is already added';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleAdd = async () => {
-    if (!validate()) return;
+    if (saving || !validate()) return;
     setSaving(true);
-    await new Promise(r => setTimeout(r, 500)); // POST /api/v1/common/sos/store
-    setContacts(prev => [...prev, { id: Date.now().toString(), name: name.trim(), phone }]);
-    setName(''); setPhone(''); setErrors({});
-    setShowAddSheet(false);
-    setSaving(false);
+    try {
+      const response = await userAuthService.addEmergencyContact({ name: name.trim(), phone });
+      const created = response?.data?.data;
+      setContacts(prev => (created?.id ? [...prev, created] : prev));
+      setName(''); setPhone(''); setErrors({});
+      setShowAddSheet(false);
+      toast.success('Emergency contact saved');
+      if (!created?.id) await loadContacts();
+    } catch (error) {
+      const message = readErrorMessage(error, 'Could not save this contact');
+      setErrors(prev => ({ ...prev, phone: message }));
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id) => {
-    await new Promise(r => setTimeout(r, 300)); // POST /api/v1/common/sos/delete/:id
-    setContacts(prev => prev.filter(c => c.id !== id));
-    setDeleteTarget(null);
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await userAuthService.deleteEmergencyContact(id);
+      setContacts(prev => prev.filter(c => c.id !== id));
+      setDeleteTarget(null);
+      toast.success('Contact removed');
+    } catch (error) {
+      toast.error(readErrorMessage(error, 'Could not remove this contact'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const triggerSOS = () => {
@@ -70,8 +116,15 @@ const SOSContacts = () => {
           setSosActive(false);
           setCountdown(3);
           triggerUserSosAlert()
-            .then(() => {
-              toast.success('SOS sent to safety center');
+            .then((alert) => {
+              const notified = Array.isArray(alert?.notifiedContacts)
+                ? alert.notifiedContacts.filter(c => c.delivered).length
+                : 0;
+              toast.success(
+                notified
+                  ? `SOS sent to safety center and ${notified} contact${notified > 1 ? 's' : ''}`
+                  : 'SOS sent to safety center',
+              );
             })
             .catch((error) => {
               console.error('Failed to trigger user SOS:', error);
@@ -102,9 +155,9 @@ const SOSContacts = () => {
           </div>
           <motion.button whileTap={{ scale: 0.9 }}
             onClick={() => setShowAddSheet(true)}
-            disabled={contacts.length >= MAX_CONTACTS}
+            disabled={loading || contacts.length >= MAX_CONTACTS}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-[12px] text-[11px] font-black uppercase tracking-widest transition-all ${
-              contacts.length >= MAX_CONTACTS
+              loading || contacts.length >= MAX_CONTACTS
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                 : 'bg-slate-900 text-white shadow-sm'
             }`}>
@@ -168,10 +221,30 @@ const SOSContacts = () => {
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-black uppercase tracking-[0.26em] text-slate-400">Emergency Contacts</p>
-            <span className="text-[10px] font-bold text-slate-400">{contacts.length}/{MAX_CONTACTS}</span>
+            <span className="text-[10px] font-bold text-slate-400">
+              {loading ? '—' : `${contacts.length}/${MAX_CONTACTS}`}
+            </span>
           </div>
 
-          {contacts.length === 0 && (
+          {loading && (
+            <div className="rounded-[20px] border border-white/80 bg-white/90 p-8 flex flex-col items-center gap-3 text-center shadow-[0_4px_14px_rgba(15,23,42,0.05)]">
+              <span className="w-6 h-6 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+              <p className="text-[13px] font-black text-slate-500">Loading your contacts...</p>
+            </div>
+          )}
+
+          {!loading && loadError && (
+            <div className="rounded-[20px] border border-red-100 bg-red-50/80 p-8 flex flex-col items-center gap-3 text-center shadow-[0_4px_14px_rgba(15,23,42,0.05)]">
+              <AlertTriangle size={30} className="text-red-400" strokeWidth={1.8} />
+              <p className="text-[13px] font-black text-red-500">{loadError}</p>
+              <button onClick={loadContacts}
+                className="rounded-full bg-slate-900 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white active:scale-95 transition-all">
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!loading && !loadError && contacts.length === 0 && (
             <div className="rounded-[20px] border border-white/80 bg-white/90 p-8 flex flex-col items-center gap-3 text-center shadow-[0_4px_14px_rgba(15,23,42,0.05)]">
               <ShieldAlert size={32} className="text-slate-300" strokeWidth={1.5} />
               <p className="text-[13px] font-black text-slate-500">Add emergency contacts to stay safe</p>
@@ -185,7 +258,7 @@ const SOSContacts = () => {
                 transition={{ delay: i * 0.05 }}
                 className="rounded-[18px] border border-white/80 bg-white/90 shadow-[0_4px_14px_rgba(15,23,42,0.05)] px-4 py-3.5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                  <span className="text-[14px] font-black text-red-500">{c.name.charAt(0)}</span>
+                  <span className="text-[14px] font-black text-red-500">{String(c.name || '?').charAt(0)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-black text-slate-900 leading-tight">{c.name}</p>
@@ -269,9 +342,9 @@ const SOSContacts = () => {
               <h3 className="text-[17px] font-black text-slate-900 mb-1">Remove contact?</h3>
               <p className="text-[13px] font-bold text-slate-400 mb-6">{deleteTarget?.name} will be removed from your SOS list.</p>
               <div className="space-y-2.5">
-                <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleDelete(deleteTarget.id)}
-                  className="w-full bg-red-500 text-white py-3.5 rounded-[16px] text-[13px] font-black uppercase tracking-widest">
-                  Remove
+                <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleDelete(deleteTarget.id)} disabled={deleting}
+                  className="w-full bg-red-500 text-white py-3.5 rounded-[16px] text-[13px] font-black uppercase tracking-widest flex items-center justify-center">
+                  {deleting ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Remove'}
                 </motion.button>
                 <button onClick={() => setDeleteTarget(null)}
                   className="w-full py-3.5 text-[13px] font-black text-slate-400 uppercase tracking-widest">

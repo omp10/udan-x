@@ -15,7 +15,6 @@ import {
   BusList,
   BusSeats,
   CabHome,
-  CabSharing,
   CareersPage,
   ComingSoon,
   ContactPage,
@@ -140,7 +139,6 @@ const publicRoutes = (
       <Route path="/intercity/vehicle" element={<IntercityVehicle />} />
       <Route path="/intercity/details" element={<IntercityDetails />} />
       <Route path="/intercity/confirm" element={<IntercityConfirm />} />
-      <Route path="/cab-sharing" element={<CabSharing />} />
       <Route path="/cab" element={<CabHome />} />
       <Route path="/cab/shared" element={<SharedTaxi />} />
       <Route path="/cab/shared/seats" element={<SharedTaxiSeats />} />

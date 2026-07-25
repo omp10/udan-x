@@ -1512,7 +1512,7 @@ const ActiveTrip = () => {
         window.open('tel:112', '_self');
     };
 
-    const publishRideStatus = (nextStatus, paymentMode = '') => {
+    const publishRideStatus = (nextStatus, paymentMode = '', rideOtp = '') => {
         if (!rideId) {
             return;
         }
@@ -1529,6 +1529,8 @@ const ActiveTrip = () => {
             rideId,
             status: nextStatus,
             paymentMethod: paymentMode || undefined,
+            // the server re-checks the rider's PIN on the -> started edge
+            ...(rideOtp ? { otp: rideOtp } : {}),
             ...(driverPaymentCollection ? { driverPaymentCollection } : {}),
         });
     };
@@ -1812,6 +1814,8 @@ const ActiveTrip = () => {
         }
 
         setOtpError('');
+        const previousArrivedAt = localArrivedAt;
+        const previousSnapshot = hydratedTripState;
         setLocalArrivedAt('');
         setPhase('in_trip');
         const startedAtIso = new Date().toISOString();
@@ -1838,15 +1842,29 @@ const ActiveTrip = () => {
                 const driverToken = getLocalDriverToken();
                 await api.patch(
                     `/rides/${rideId}/status`,
-                    { status: 'started' },
+                    { status: 'started', otp: enteredOtp },
                     withDriverAuthorization(driverToken),
                 );
             }
-        } catch {
-            // Keep the optimistic local state; socket/live hydration will reconcile when available.
+        } catch (error) {
+            // The server re-verifies the PIN, so a 400 means it genuinely did not
+            // match — roll the optimistic start back instead of showing a trip
+            // that never started. Other failures stay optimistic and reconcile
+            // via socket/live hydration as before.
+            if (error?.response?.status === 400) {
+                setPhase('otp_verification');
+                setLocalArrivedAt(previousArrivedAt);
+                if (previousSnapshot) {
+                    setHydratedTripState(previousSnapshot);
+                    writeStoredActiveTripSnapshot(previousSnapshot);
+                }
+                setOtp(['', '', '', '']);
+                setOtpError(error?.response?.data?.message || 'Wrong PIN. Ask the passenger again.');
+                return;
+            }
         }
 
-        publishRideStatus('started');
+        publishRideStatus('started', '', enteredOtp);
     };
 
     useEffect(() => {

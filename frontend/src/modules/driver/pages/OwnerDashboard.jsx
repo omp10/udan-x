@@ -20,6 +20,10 @@ import { useSettings } from '../../../shared/context/SettingsContext';
 import DriverBottomNav from '../../shared/components/DriverBottomNav';
 import { getOwnerFleetDashboard } from '../services/registrationService';
 
+// ponytail: 30s poll stands in for a realtime owner room; swap for a socket
+// subscription once dispatchService gains an `owner:<id>` channel.
+const OWNER_DASHBOARD_POLL_MS = 30000;
+
 const isEnabledFlag = (value) => {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value === 1;
@@ -118,8 +122,25 @@ const OwnerDashboard = () => {
     }
   };
 
+  // There is no owner socket room (dispatchService only broadcasts to user:/driver:/admin:),
+  // so the dashboard polls instead. Pauses while the tab is hidden so a parked phone
+  // does not hammer the aggregation endpoint.
   useEffect(() => {
     loadDashboard();
+
+    const tick = () => {
+      if (document.visibilityState === 'visible') {
+        loadDashboard({ silent: true });
+      }
+    };
+
+    const timer = setInterval(tick, OWNER_DASHBOARD_POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, []);
 
   const profile = dashboard?.profile || {};
@@ -568,6 +589,50 @@ const OwnerDashboard = () => {
             <div className="text-left">
               <p className="text-[11px] font-black text-slate-900">Manage Fleet</p>
               <p className="mt-1 text-[10px] font-bold text-slate-400">Update vehicles</p>
+            </div>
+            <ArrowRight size={16} className="text-slate-300" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/taxi/owner/reports/earnings')}
+            className="flex items-center justify-between rounded-[26px] bg-white px-4 py-4 shadow-sm"
+          >
+            <div className="text-left">
+              <p className="text-[11px] font-black text-slate-900">Earnings Reports</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">Vehicle & driver wise</p>
+            </div>
+            <ArrowRight size={16} className="text-slate-300" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/taxi/owner/reports/shipments')}
+            className="flex items-center justify-between rounded-[26px] bg-white px-4 py-4 shadow-sm"
+          >
+            <div className="text-left">
+              <p className="text-[11px] font-black text-slate-900">Shipments</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">Parcel monitoring</p>
+            </div>
+            <ArrowRight size={16} className="text-slate-300" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/taxi/owner/reports/payouts')}
+            className="flex items-center justify-between rounded-[26px] bg-white px-4 py-4 shadow-sm"
+          >
+            <div className="text-left">
+              <p className="text-[11px] font-black text-slate-900">Payouts</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">Withdraw earnings</p>
+            </div>
+            <ArrowRight size={16} className="text-slate-300" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/taxi/owner/reports/compliance')}
+            className="flex items-center justify-between rounded-[26px] bg-white px-4 py-4 shadow-sm"
+          >
+            <div className="text-left">
+              <p className="text-[11px] font-black text-slate-900">Documents</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">Insurance & RC expiry</p>
             </div>
             <ArrowRight size={16} className="text-slate-300" />
           </button>

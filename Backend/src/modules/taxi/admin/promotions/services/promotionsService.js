@@ -621,12 +621,28 @@ export const pushBanner = async (id) => {
     throw new ApiError(404, 'Banner not found');
   }
 
+  // This used to only bump push_count and return "Push notification triggered
+  // successfully" while sending absolutely nothing. Reuses the same delivery path
+  // as createNotification so a banner push is a real push.
+  // Banner has no audience/location fields, so a banner push goes to everyone.
+  // ponytail: add send_to / service_location_id to the Banner model if banner
+  // pushes ever need the same targeting the Notification flow has.
+  const delivery = await sendPushNotificationToAudience({
+    sendTo: 'all',
+    title: banner.title,
+    body: banner.title,
+    image: banner.image || '',
+  });
+
   banner.push_count = Number(banner.push_count || 0) + 1;
   banner.last_pushed_at = new Date();
   await banner.save();
 
   return {
-    message: 'Push notification triggered successfully',
+    message: delivery.attempted
+      ? 'Banner push delivery attempted'
+      : 'Banner saved but push delivery is not configured',
+    delivery,
     banner: serializeBanner(banner.toObject()),
   };
 };

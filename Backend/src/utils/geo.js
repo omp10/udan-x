@@ -22,3 +22,30 @@ export const toPoint = (coordinates, fieldName) => ({
   type: 'Point',
   coordinates: normalizePoint(coordinates, fieldName),
 });
+
+const toRadians = (value) => (Number(value) * Math.PI) / 180;
+
+// Straight-line distance. Always <= real road distance, so it is a safe lower
+// bound when validating a client-reported route length.
+// ponytail: haversine is also hand-rolled in 8 other files; consolidate onto
+// this one if any of them ever needs a fix.
+export const haversineKm = (fromCoords = [], toCoords = []) => {
+  if (!Array.isArray(fromCoords) || !Array.isArray(toCoords) || fromCoords.length < 2 || toCoords.length < 2) {
+    return 0;
+  }
+
+  const [fromLng, fromLat] = fromCoords.map(Number);
+  const [toLng, toLat] = toCoords.map(Number);
+  if (![fromLng, fromLat, toLng, toLat].every(Number.isFinite)) {
+    return 0;
+  }
+
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(toLat - fromLat);
+  const dLng = toRadians(toLng - fromLng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat));
+
+  return earthRadiusKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+};

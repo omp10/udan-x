@@ -1,21 +1,66 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Briefcase, Home, MapPin, Pencil, Plus, Trash2, X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { userService } from '../../services/userService';
 
+// Legacy client-only store. Read once, pushed to the API, then dropped.
 const STORAGE_KEY = 'Appzeto 24:savedAddresses';
 
-const createId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const emptyState = { home: null, work: null, landmarks: [] };
 
-const defaultState = {
-  home: {
-    label: 'Home',
-    address: 'Vijay Nagar, Indore',
-    landmark: '',
-    notes: '',
-  },
-  work: null,
-  landmarks: [],
+const unwrap = (response) => response?.data?.data || response?.data || response;
+
+const groupByKind = (rows) => ({
+  home: rows.find((row) => row.kind === 'home') || null,
+  work: rows.find((row) => row.kind === 'work') || null,
+  landmarks: rows.filter((row) => row.kind === 'landmark'),
+});
+
+const readErrorMessage = (err, fallback) =>
+  err?.response?.data?.message || err?.message || fallback;
+
+// One-shot migration of the old localStorage payload into the API.
+const migrateLegacyAddresses = async () => {
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    window.localStorage.removeItem(STORAGE_KEY);
+    return false;
+  }
+
+  const pending = [];
+  ['home', 'work'].forEach((kind) => {
+    const entry = parsed?.[kind];
+    if (entry?.address?.trim()) {
+      pending.push({ kind, address: entry.address, landmark: entry.landmark, notes: entry.notes });
+    }
+  });
+  (Array.isArray(parsed?.landmarks) ? parsed.landmarks : []).forEach((entry) => {
+    if (entry?.address?.trim() && entry?.label?.trim()) {
+      pending.push({
+        kind: 'landmark',
+        label: entry.label,
+        address: entry.address,
+        landmark: entry.landmark,
+        notes: entry.notes,
+      });
+    }
+  });
+
+  if (pending.length === 0) {
+    window.localStorage.removeItem(STORAGE_KEY);
+    return false;
+  }
+
+  await Promise.allSettled(pending.map((payload) => userService.saveAddress(payload)));
+  window.localStorage.removeItem(STORAGE_KEY);
+  return true;
 };
 
 const Field = ({ label, children }) => (
@@ -120,99 +165,115 @@ const ModalShell = ({ title, subtitle, onClose, children }) => (
 
 const AddressSettings = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState(defaultState);
+  const [data, setData] = useState(emptyState);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState(null); // { mode: 'home'|'work'|'landmark', id?: string }
-  const [confirmDelete, setConfirmDelete] = useState(null); // { mode: 'home'|'work'|'landmark', id?: string, title: string }
-
-  const draftDefaults = useMemo(() => {
-    const mode = modal?.mode;
-    if (!mode) return null;
-    if (mode === 'home') return data.home || defaultState.home;
-    if (mode === 'work') return data.work || { label: 'Work', address: '', landmark: '', notes: '' };
-    if (mode === 'landmark') {
-      const existing = data.landmarks.find((l) => l.id === modal.id);
-      return existing || { id: createId(), label: '', address: '', landmark: '', notes: '' };
-    }
-    return null;
-  }, [data, modal]);
-
+  const [confirmDelete, setConfirmDelete] = useState(null); // { id: string, title: string }
   const [draft, setDraft] = useState(null);
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') setData({ ...defaultState, ...parsed });
-    } catch {
-      // ignore
-    }
+  const refresh = useCallback(async () => {
+    const payload = unwrap(await userService.getSavedAddresses());
+    setData(groupByKind(Array.isArray(payload) ? payload : []));
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      try {
+        await migrateLegacyAddresses();
+        if (!active) return;
+        await refresh();
+      } catch (err) {
+        if (active) toast.error(readErrorMessage(err, 'Could not load your saved addresses'));
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, [refresh]);
+
+  const closeModal = () => {
+    setModal(null);
+    setDraft(null);
+  };
+
+  const openEdit = (mode, id) => {
+    const existing =
+      mode === 'landmark'
+        ? (id ? data.landmarks.find((l) => l.id === id) : null)
+        : data[mode];
+
+    setDraft({
+      id: existing?.id,
+      label: existing?.label || (mode === 'home' ? 'Home' : mode === 'work' ? 'Work' : ''),
+      address: existing?.address || '',
+      landmark: existing?.landmark || '',
+      notes: existing?.notes || '',
+    });
+    setModal({ mode, id });
+  };
+
+  const saveDraft = async () => {
+    if (!modal || !draft || saving) return;
+
+    if (!draft.address.trim()) {
+      toast.error('Add an address before saving');
+      return;
+    }
+    if (modal.mode === 'landmark' && !draft.label.trim()) {
+      toast.error('Give this place a label');
+      return;
+    }
+
+    setSaving(true);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // ignore
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (!draftDefaults) {
-      setDraft(null);
-      return;
-    }
-    setDraft(draftDefaults);
-  }, [draftDefaults]);
-
-  const closeModal = () => setModal(null);
-
-  const openEdit = (mode, id) => setModal({ mode, id });
-
-  const saveDraft = () => {
-    if (!modal || !draft) return;
-
-    if (modal.mode === 'home') {
-      setData((prev) => ({ ...prev, home: { ...prev.home, ...draft, label: 'Home' } }));
-      closeModal();
-      return;
-    }
-
-    if (modal.mode === 'work') {
-      setData((prev) => ({ ...prev, work: { ...draft, label: 'Work' } }));
-      closeModal();
-      return;
-    }
-
-    if (modal.mode === 'landmark') {
-      if (!draft.label.trim() || !draft.address.trim()) return;
-      setData((prev) => {
-        const exists = prev.landmarks.some((l) => l.id === draft.id);
-        const nextLandmarks = exists
-          ? prev.landmarks.map((l) => (l.id === draft.id ? { ...draft } : l))
-          : [{ ...draft }, ...prev.landmarks];
-        return { ...prev, landmarks: nextLandmarks };
+      await userService.saveAddress({
+        kind: modal.mode,
+        id: draft.id,
+        label: draft.label,
+        address: draft.address,
+        landmark: draft.landmark,
+        notes: draft.notes,
       });
+      await refresh();
       closeModal();
+      toast.success(modal.mode === 'landmark' ? 'Landmark saved' : 'Address saved');
+    } catch (err) {
+      toast.error(readErrorMessage(err, 'Could not save this address'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const doDelete = () => {
-    if (!confirmDelete) return;
+  const doDelete = async () => {
+    if (!confirmDelete?.id || saving) return;
 
-    if (confirmDelete.mode === 'home') {
-      setData((prev) => ({ ...prev, home: { ...prev.home, address: '', landmark: '', notes: '' } }));
-    } else if (confirmDelete.mode === 'work') {
-      setData((prev) => ({ ...prev, work: null }));
-    } else if (confirmDelete.mode === 'landmark') {
-      setData((prev) => ({ ...prev, landmarks: prev.landmarks.filter((l) => l.id !== confirmDelete.id) }));
+    setSaving(true);
+    try {
+      await userService.deleteSavedAddress(confirmDelete.id);
+      await refresh();
+      setConfirmDelete(null);
+      toast.success('Address removed');
+    } catch (err) {
+      toast.error(readErrorMessage(err, 'Could not remove this address'));
+    } finally {
+      setSaving(false);
     }
-
-    setConfirmDelete(null);
   };
 
-  const homeSubtitle = data.home?.address?.trim() ? data.home.address : 'Add your home address';
-  const workSubtitle = data.work?.address?.trim() ? data.work.address : 'Add your office address';
+  const homeSubtitle = loading
+    ? 'Loading…'
+    : data.home?.address?.trim() || 'Add your home address';
+  const workSubtitle = loading
+    ? 'Loading…'
+    : data.work?.address?.trim() || 'Add your office address';
   const hasLandmarks = data.landmarks.length > 0;
 
   return (
@@ -244,18 +305,18 @@ const AddressSettings = () => {
             title="Home"
             subtitle={homeSubtitle}
             accentClass="text-orange-600"
-            isEmpty={!data.home?.address?.trim()}
+            isEmpty={loading || !data.home?.address?.trim()}
             onEdit={() => openEdit('home')}
-            onDelete={() => setConfirmDelete({ mode: 'home', title: 'Home address' })}
+            onDelete={() => setConfirmDelete({ id: data.home?.id, title: 'Home address' })}
           />
           <AddressCard
             icon={Briefcase}
             title="Work"
             subtitle={workSubtitle}
             accentClass="text-indigo-600"
-            isEmpty={!data.work?.address?.trim()}
+            isEmpty={loading || !data.work?.address?.trim()}
             onEdit={() => openEdit('work')}
-            onDelete={() => setConfirmDelete({ mode: 'work', title: 'Work address' })}
+            onDelete={() => setConfirmDelete({ id: data.work?.id, title: 'Work address' })}
           />
         </div>
 
@@ -297,7 +358,7 @@ const AddressSettings = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setConfirmDelete({ mode: 'landmark', id: lm.id, title: lm.label })}
+                      onClick={() => setConfirmDelete({ id: lm.id, title: lm.label })}
                       className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 shadow-sm flex items-center justify-center text-rose-500 active:scale-95 transition-transform"
                       aria-label={`Delete ${lm.label}`}
                     >
@@ -383,8 +444,8 @@ const AddressSettings = () => {
               </Field>
 
               <div className="pt-2 space-y-2.5">
-                <PrimaryButton onClick={saveDraft}>
-                  {modal.mode === 'landmark' ? 'Save landmark' : 'Save address'}
+                <PrimaryButton onClick={saveDraft} disabled={saving} className={saving ? 'opacity-60' : ''}>
+                  {saving ? 'Saving…' : modal.mode === 'landmark' ? 'Save landmark' : 'Save address'}
                 </PrimaryButton>
                 <SecondaryButton onClick={closeModal}>Cancel</SecondaryButton>
               </div>
@@ -431,9 +492,10 @@ const AddressSettings = () => {
                 <button
                   type="button"
                   onClick={doDelete}
-                  className="flex-1 rounded-2xl bg-rose-600 px-4 py-3 text-[12px] font-black uppercase tracking-[0.16em] text-white shadow-[0_16px_34px_rgba(225,29,72,0.22)] active:scale-95 transition-all"
+                  disabled={saving}
+                  className="flex-1 rounded-2xl bg-rose-600 px-4 py-3 text-[12px] font-black uppercase tracking-[0.16em] text-white shadow-[0_16px_34px_rgba(225,29,72,0.22)] active:scale-95 transition-all disabled:opacity-60"
                 >
-                  Delete
+                  {saving ? 'Deleting…' : 'Delete'}
                 </button>
               </div>
             </motion.div>

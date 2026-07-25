@@ -126,8 +126,8 @@ const CommissionManagement = () => {
     try {
       setLoading(true);
       const [commissionRes, vehicleRes] = await Promise.all([
-        adminService.getCommissionSettings().catch(() => null),
-        adminService.getVehicleTypes().catch(() => null),
+        adminService.getCommissionSettings(),
+        adminService.getVehicleTypes(),
       ]);
 
       if (commissionRes?.data) {
@@ -161,7 +161,7 @@ const CommissionManagement = () => {
         avg_commission_rate: commissionRes?.data?.analytics?.avg_rate || 0,
       });
     } catch (err) {
-      console.error(err);
+      toast.error(err?.response?.data?.message || 'Failed to load commission settings');
     } finally {
       setLoading(false);
     }

@@ -1,12 +1,15 @@
 import mongoose from 'mongoose';
 import { env } from '../../../../config/env.js';
 import { ApiError } from '../../../../utils/ApiError.js';
+import { Owner } from '../../admin/models/Owner.js';
+import { OwnerWalletTransaction } from '../../admin/models/OwnerWalletTransaction.js';
 import { SetPrice } from '../../admin/models/SetPrice.js';
 import { Vehicle } from '../../admin/models/Vehicle.js';
 import { Driver } from '../models/Driver.js';
 import { WalletTransaction } from '../models/WalletTransaction.js';
 import { Ride } from '../../user/models/Ride.js';
 import { getWalletSettings } from '../../services/appSettingsService.js';
+import { getPartnerSubscriptionMode, resolveActivePartnerBenefits } from '../../services/partnerSubscriptionService.js';
 
 const normalizeAmount = (value, fieldName = 'amount') => {
   const amount = Number(value);
@@ -315,6 +318,72 @@ export const topUpDriverWallet = async ({ driverId, amount, metadata = {} }) => 
   }
 };
 
+// Credits the fleet owner their share of a completed ride and records it on the
+// OwnerWalletTransaction ledger. Idempotent via Ride.ownerSettledAt.
+//
+// ponytail: owner earnings are credited to the owner wallet directly; a separate
+// escrow/hold step can be layered on later if payouts need approval gating.
+const settleOwnerCommissionForRide = async ({ ride, fare, session }) => {
+  if (!ride?.driverId || ride.ownerSettledAt) {
+    return null;
+  }
+
+  const driver = await Driver.findById(ride.driverId).select('owner_id').session(session).lean();
+  const ownerId = driver?.owner_id;
+
+  if (!ownerId) {
+    return null;
+  }
+
+  const snapshot = ride.pricingSnapshot?.toObject?.() || ride.pricingSnapshot || {};
+  const ownerCommission = computeCommissionAmount({
+    fare,
+    type: snapshot.admin_commission_type_for_owner ?? 1,
+    value: snapshot.admin_commission_for_owner ?? 0,
+  });
+
+  const ownerEarnings = Math.max(Math.round((fare - ownerCommission) * 100) / 100, 0);
+
+  if (!ownerEarnings) {
+    return null;
+  }
+
+  const owner = await Owner.findById(ownerId).session(session);
+
+  if (!owner) {
+    return null;
+  }
+
+  const balanceBefore = Number(owner.wallet?.balance || 0);
+  const balanceAfter = Math.round((balanceBefore + ownerEarnings) * 100) / 100;
+
+  owner.wallet = owner.wallet || {};
+  owner.wallet.balance = balanceAfter;
+  owner.markModified('wallet');
+  await owner.save({ session });
+
+  await OwnerWalletTransaction.create(
+    [
+      {
+        ownerId: owner._id,
+        amount: ownerEarnings,
+        kind: 'credit',
+        title: `Ride earning (${String(ride._id).slice(-6)})`,
+        balance: balanceAfter,
+      },
+    ],
+    { session },
+  );
+
+  ride.ownerSettledAt = new Date();
+  ride.ownerId = owner._id;
+  ride.ownerEarnings = ownerEarnings;
+  ride.ownerCommissionAmount = ownerCommission;
+  await ride.save({ session });
+
+  return { ownerId: owner._id, ownerEarnings, ownerCommission, balance: balanceAfter };
+};
+
 export const settleCompletedRideWallet = async ({ rideId }) => {
   const session = await mongoose.startSession();
 
@@ -334,11 +403,36 @@ export const settleCompletedRideWallet = async ({ rideId }) => {
 
     const fare = normalizeAmount(ride.fare || 0, 'fare');
     const commissionConfig = await resolveCommissionConfigForRide(ride, session);
-    const commissionAmount = computeCommissionAmount({
+    const grossCommissionAmount = computeCommissionAmount({
       fare,
       type: commissionConfig.type,
       value: commissionConfig.value,
     });
+
+    // Subscription benefit: reduced commission. commission_discount_percent was a
+    // stored flag with no reader — this is where it finally applies.
+    const driverBenefits = await resolveActivePartnerBenefits({
+      audience: 'driver',
+      entityId: ride.driverId,
+      session,
+    });
+
+    // subscription.mode was only ever read to BLOCK a purchase; setting
+    // 'subscriptionOnly' did not stop commission being deducted, so subscribed
+    // drivers were charged twice. A subscribed driver pays no commission in
+    // subscriptionOnly mode.
+    const subscriptionMode = await getPartnerSubscriptionMode();
+    const commissionWaivedBySubscription = subscriptionMode === 'subscriptionOnly' && Boolean(driverBenefits);
+
+    const commissionDiscountPercent = commissionWaivedBySubscription
+      ? 100
+      : Math.min(100, Math.max(0, Number(driverBenefits?.commissionDiscountPercent || 0)));
+    const commissionDiscountAmount = Math.round((grossCommissionAmount * commissionDiscountPercent)) / 100;
+    const commissionAmount = Math.max(
+      Math.round((grossCommissionAmount - commissionDiscountAmount) * 100) / 100,
+      0,
+    );
+
     const paymentMethod = normalizePaymentMethod(ride.paymentMethod);
     const driverEarnings = Math.max(Math.round((fare - commissionAmount) * 100) / 100, 0);
     const amount = paymentMethod === 'cash' ? -commissionAmount : driverEarnings;
@@ -347,13 +441,24 @@ export const settleCompletedRideWallet = async ({ rideId }) => {
     ride.paymentMethod = paymentMethod;
     ride.commissionAmount = commissionAmount;
     ride.driverEarnings = driverEarnings;
+    // Spread the existing snapshot: this used to REPLACE it with 4 keys, which
+    // discarded admin_commission_*_for_owner (needed for owner settlement below)
+    // plus the waiting-charge and allowed_payment_methods fields.
     ride.pricingSnapshot = {
+      ...(ride.pricingSnapshot?.toObject?.() || ride.pricingSnapshot || {}),
       setPriceId: ride.pricingSnapshot?.setPriceId || commissionConfig.setPriceId || null,
       admin_commission_type_from_driver: Number(commissionConfig.type ?? ride.pricingSnapshot?.admin_commission_type_from_driver ?? 1),
       admin_commission_from_driver: Number(commissionConfig.value ?? ride.pricingSnapshot?.admin_commission_from_driver ?? 0),
+      commission_gross: grossCommissionAmount,
+      commission_discount_percent: commissionDiscountPercent,
+      commission_discount_amount: commissionDiscountAmount,
       resolvedAt: ride.pricingSnapshot?.resolvedAt || new Date(),
     };
     await ride.save({ session });
+
+    // Fleet-owner settlement. admin_commission_for_owner was fully configurable
+    // and never collected — no owner settlement code existed at all.
+    await settleOwnerCommissionForRide({ ride, fare, session });
 
     if (!amount) {
       await session.commitTransaction();

@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import userBusService from '../../services/busService';
 import { useSettings } from '../../../../shared/context/SettingsContext';
-// ... removed BottomNavbar import ...
 
 const isEnabledFlag = (value) => {
   if (typeof value === 'boolean') return value;

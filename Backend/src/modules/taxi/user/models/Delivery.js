@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { RIDE_LIVE_STATUS, RIDE_STATUS } from '../../constants/index.js';
+import { parcelDetailsDefinition } from './parcelDetailsSchema.js';
 
 const deliverySchema = new mongoose.Schema(
   {
@@ -89,64 +90,7 @@ const deliverySchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    parcel: {
-      category: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      weight: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      description: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      deliveryCategory: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      goodsTypeFor: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      deliveryScope: {
-        type: String,
-        enum: ['city', 'outstation'],
-        default: 'city',
-        lowercase: true,
-        trim: true,
-      },
-      isOutstation: {
-        type: Boolean,
-        default: false,
-      },
-      senderName: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      senderMobile: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      receiverName: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-      receiverMobile: {
-        type: String,
-        default: '',
-        trim: true,
-      },
-    },
+    parcel: parcelDetailsDefinition,
     acceptedAt: {
       type: Date,
       default: null,

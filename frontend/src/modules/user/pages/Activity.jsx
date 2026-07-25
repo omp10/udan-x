@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-// ... removed BottomNavbar import ...
 import { useUserTheme } from '../../../shared/context/UserThemeContext';
 
 import ActivityHeader from '../components/activity/ActivityHeader';

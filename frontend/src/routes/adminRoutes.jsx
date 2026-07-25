@@ -144,7 +144,6 @@ import {
   AdminHelperManagement,
   AdminWarehouseManagement,
   AdminGoodsSettings,
-  AdminAppBranding,
 } from './lazyPages';
 
 const AdminReportPlaceholder = ({ title }) => (
@@ -441,7 +440,6 @@ const adminRoutes = (
       <Route path="goods/settings" element={<AdminGoodsSettings />} />
 
       {/* === SOW Gap-Fill: App Branding === */}
-      <Route path="settings/business/branding" element={<AdminAppBranding />} />
     </Route>
 
     <Route path="*" element={<Navigate to="/" />} />

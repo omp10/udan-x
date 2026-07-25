@@ -22,6 +22,7 @@ import {
   OwnerBusServicePage,
   OwnerDashboard,
   OwnerPoolingVehicleForm,
+  OwnerReports,
   OwnerVehicleFleet,
   PhoneRegistration,
   PortalSupportPage,
@@ -70,6 +71,8 @@ const ownerRoutes = (
     <Route path="subscriptions" element={<DriverSubscriptions />} />
     <Route path="profile/bank-details" element={<DriverBankDetailsPage />} />
     <Route path="wallet" element={<DriverWallet />} />
+    <Route path="reports" element={<OwnerReports />} />
+    <Route path="reports/:reportTab" element={<OwnerReports />} />
     <Route path="history" element={<RideRequests />} />
     <Route path="edit-profile" element={<EditProfile />} />
     <Route path="documents" element={<DriverDocuments />} />

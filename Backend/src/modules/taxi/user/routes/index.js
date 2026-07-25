@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { addressRouter } from './addressRoutes.js';
 import { deliveryRouter } from './deliveryRoutes.js';
 import { promoRouter } from './promoRoutes.js';
 import { rideRouter } from './rideRoutes.js';
@@ -9,6 +10,7 @@ import { asyncHandler } from '../../../../utils/asyncHandler.js';
 export const userModuleRouter = Router();
 
 userModuleRouter.get('/user-home-management', asyncHandler(getUserHomeManagement));
+userModuleRouter.use('/users/addresses', addressRouter);
 userModuleRouter.use('/users', userRouter);
 userModuleRouter.use('/rides', rideRouter);
 userModuleRouter.use('/deliveries', deliveryRouter);

@@ -6,6 +6,7 @@ import {
   otpSendRateLimit,
   otpVerifyRateLimit,
   paymentOrderRateLimit,
+  uploadRateLimit,
 } from '../../middlewares/rateLimitMiddleware.js';
 import {
   cancelMyBusBooking,
@@ -24,6 +25,10 @@ import {
   listMyBusBookings,
   getUserWallet,
   getCurrentUser,
+  getUserEmergencyContacts,
+  addUserEmergencyContact,
+  updateUserEmergencyContact,
+  deleteUserEmergencyContact,
   getUserNotifications,
   deleteUserNotification,
   endMyActiveRentalRide,
@@ -68,7 +73,7 @@ import {
   createPoolingBooking,
   getMyPoolingBookings
 } from '../controllers/poolingController.js';
-import { getAppBootstrap, getAppModules, getGeneralSettingsCategory, getGoodsTypes, getPublicRentalVehicleCatalog, getPublicVehicleTypeCatalog } from '../../admin/controllers/adminController.js';
+import { getAppBootstrap, getAppModules, getGeneralSettingsCategory, getGoodsTypes, getPublicHelpers, getPublicRentalVehicleCatalog, getPublicVehicleTypeCatalog, getPublicWarehouses } from '../../admin/controllers/adminController.js';
 import { triggerUserSosAlert } from '../../safety/controllers/safetyController.js';
 
 export const userRouter = Router();
@@ -78,6 +83,10 @@ userRouter.get('/app-modules', asyncHandler(getAppModules));
 userRouter.get('/settings/:category', asyncHandler(getGeneralSettingsCategory));
 userRouter.get('/intercity-packages', asyncHandler(getIntercityPackageCatalog));
 userRouter.get('/goods-types', asyncHandler(getGoodsTypes));
+// The parcel booking flow already calls both of these; until now they 404'd and
+// the customer app silently fell back to hardcoded MOCK_WAREHOUSES / ₹150.
+userRouter.get('/warehouses', asyncHandler(getPublicWarehouses));
+userRouter.get('/helpers', asyncHandler(getPublicHelpers));
 userRouter.get('/vehicle-types', asyncHandler(getPublicVehicleTypeCatalog));
 userRouter.get('/set-prices', asyncHandler(getSetPrices));
 userRouter.get('/zones', asyncHandler(getZones));
@@ -93,7 +102,7 @@ userRouter.post('/rental-bookings/:id/location', authenticate(['user']), asyncHa
 userRouter.post('/register', asyncHandler(registerUser));
 userRouter.post('/signup', asyncHandler(signupUser));
 userRouter.post('/login', loginRateLimit, asyncHandler(loginUser));
-userRouter.post('/profile-image', asyncHandler(uploadUserProfileImage));
+userRouter.post('/profile-image', uploadRateLimit, asyncHandler(uploadUserProfileImage));
 userRouter.post('/auth/send-otp', otpSendRateLimit, asyncHandler(startUserOtpRequest));
 userRouter.post('/auth/verify-otp', otpVerifyRateLimit, asyncHandler(verifyUserOtpRequest));
 userRouter.post('/otp-login', otpVerifyRateLimit, asyncHandler(verifyUserPhoneForOtpLogin));
@@ -108,6 +117,10 @@ userRouter.get('/notifications', authenticate(['user']), asyncHandler(getUserNot
 userRouter.delete('/notifications/:id', authenticate(['user']), asyncHandler(deleteUserNotification));
 userRouter.delete('/notifications', authenticate(['user']), asyncHandler(clearAllUserNotifications));
 userRouter.post('/sos', authenticate(['user']), asyncHandler(triggerUserSosAlert));
+userRouter.get('/emergency-contacts', authenticate(['user']), asyncHandler(getUserEmergencyContacts));
+userRouter.post('/emergency-contacts', authenticate(['user']), asyncHandler(addUserEmergencyContact));
+userRouter.patch('/emergency-contacts/:contactId', authenticate(['user']), asyncHandler(updateUserEmergencyContact));
+userRouter.delete('/emergency-contacts/:contactId', authenticate(['user']), asyncHandler(deleteUserEmergencyContact));
 userRouter.get('/wallet', authenticate(['user']), asyncHandler(getUserWallet));
 userRouter.post('/wallet/topup', authenticate(['user']), asyncHandler(topupUserWallet));
 userRouter.post('/wallet/transfer', authenticate(['user']), asyncHandler(transferUserWallet));

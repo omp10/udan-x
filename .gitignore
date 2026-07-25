@@ -13,3 +13,8 @@ scratch/
 
 # lint baseline scratch copies
 frontend/.lintbase/
+
+# never commit env files (frontend VITE_* are public, but keep them out of git anyway)
+.env
+.env.*
+!.env.example

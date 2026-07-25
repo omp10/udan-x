@@ -186,7 +186,7 @@ export const BottomSheet = ({ open, onClose, title, subtitle, className = '', ch
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center">
+        <div className="fixed inset-0 z-overlay flex items-end justify-center">
           <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -223,7 +223,7 @@ export const Modal = ({ open, onClose, title, subtitle, className = '', children
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-5">
+        <div className="fixed inset-0 z-overlay flex items-center justify-center p-5">
           <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

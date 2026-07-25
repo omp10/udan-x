@@ -98,6 +98,11 @@ body {
   --shadow-soft: 0 4px 20px -2px rgba(0,0,0,0.05);
   --shadow-card: 0 4px 14px rgba(15, 23, 42, 0.07);
   --shadow-sheet: 0 -12px 40px -8px rgba(0, 0, 0, 0.25);
+
+  /* Overlays must clear `.user-bottom-nav`, which is `z-index: 9997 !important`.
+     The primitives previously used z-[100], so a BottomSheet or Modal on any
+     screen inside UserAppLayout rendered UNDERNEATH the bottom nav. */
+  --z-index-overlay: 10000;
 }
 
 /* Global scrollbar hiding for a cleaner mobile experience */

@@ -11,11 +11,13 @@
   "dependencies": {
     "@phonepe-pg/pg-sdk-node": "^2.0.6",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.81.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "firebase-admin": "^13.8.0",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1",
     "morgan": "^1.10.0",
